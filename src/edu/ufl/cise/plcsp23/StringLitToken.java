@@ -11,7 +11,7 @@ public class StringLitToken extends Token implements IStringLitToken{
 	@Override
 	public String getValue() {
 		// TODO Auto-generated method stub
-		return null;
+		return source.toString();
 	}
 
 }
