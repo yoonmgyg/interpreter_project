@@ -237,12 +237,14 @@ class Scanner implements IScanner {
 		 			case '-' -> {
 		 				nextChar();
 		 				if (ch == '>') {
+		 					nextChar();
 		 					return new Token(Kind.EXCHANGE, tokenStart, 3, inputChars, line, column);
 		 				}
 		 				error ("Invalid LROW token");
 
 		 			}
 		 			case '=' -> {
+		 				nextChar();
 	 					return new Token(Kind.LE, tokenStart, 2, inputChars, line, column);
 		 			}
 		 			default -> {
@@ -256,6 +258,7 @@ class Scanner implements IScanner {
 		 	case HAVE_RROW -> {
 		 		switch(ch) {
 		 			case '=' -> {
+		 				nextChar();
 	 					return new Token(Kind.GE, tokenStart, 2, inputChars, line, column);
 		 			}
 		 			default -> {
