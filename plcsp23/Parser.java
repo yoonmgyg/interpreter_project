@@ -55,9 +55,7 @@ public class Parser implements IParser
         else 
             parserPos++;        
         Scanner = CompilerComponentFactory.makeScanner(input.substring(parserPos,input.length()));
-        IToken token;
-        token = Scanner.next();
-        return token;
+        return Scanner.next();
     }
     
     public Expr expr() throws SyntaxException, LexicalException {
@@ -117,17 +115,16 @@ public class Parser implements IParser
             }
         }
         else            
-        	throw new SyntaxException("Unable to parse given expression");            
+        	throw new SyntaxException("Parsing Error");            
         return globalExpression;
     }
     // Unary needs primary
     public Expr unaryExpr() throws SyntaxException, LexicalException {
-        globalkind = beginToken.getKind();
-        if (kind() == IToken.Kind.BANG || kind() == IToken.Kind.MINUS|| kind() == IToken.Kind.RES_sin || kind() == IToken.Kind.RES_cos|| kind() == IToken.Kind.RES_atan) {
-            currentToken = beginToken;
+        if (kind() == IToken.Kind.BANG || kind() == IToken.Kind.MINUS|| kind() == IToken.Kind.RES_sin || kind() == IToken.Kind.RES_cos|| kind() == IToken.Kind.RES_atan) {         
             nextToken =  consume();
             globalkind = nextToken.getKind();
-            globalExpression = primaryExpr();
+            currentToken = beginToken;
+            globalExpression = primaryExpr();            
             return new UnaryExpr(currentToken,currentToken.getKind(),globalExpression);
         }
         else
@@ -182,8 +179,8 @@ public class Parser implements IParser
     public Expr conditionalExpr() throws LexicalException, SyntaxException {
     	Expr T;
     	Expr F;
-        thruCondtional = true;
         currentToken = beginToken;
+        thruCondtional = true;
         if (kind() == IToken.Kind.RES_if){
             nextToken =  consume();
             Expr conditionalReturn = primaryExpr();
@@ -202,7 +199,7 @@ public class Parser implements IParser
             return new ConditionalExpr(currentToken, conditionalReturn, T, F);
         }
         else
-           throw new SyntaxException("Error");
+           throw new SyntaxException("Conditional Error, no if token found");
     }
 
 
