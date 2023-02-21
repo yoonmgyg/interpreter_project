@@ -19,39 +19,39 @@ class Scanner implements IScanner {
   static {
 	  
 	    reservedWords = new HashMap<>();
-	    reservedWords.put("res_image", Kind.RES_image);
-	    reservedWords.put("res_pixel", Kind.RES_pixel);
-	    reservedWords.put("res_int", Kind.RES_int);
-	    reservedWords.put("res_string", Kind.RES_string);
-	    reservedWords.put("res_void", Kind.RES_void);
-	    reservedWords.put("res_nil", Kind.RES_nil);
-	    reservedWords.put("res_load", Kind.RES_load);
-	    reservedWords.put("res_display", Kind.RES_display);
-	    reservedWords.put("res_write", Kind.RES_write);
-	    reservedWords.put("res_x", Kind.RES_x);
-	    reservedWords.put("res_y", Kind.RES_y);
-	    reservedWords.put("res_a", Kind.RES_a);
-	    reservedWords.put("res_r", Kind.RES_r);
-	    reservedWords.put("res_X", Kind.RES_X);
-	    reservedWords.put("res_Y", Kind.RES_Y);
-	    reservedWords.put("res_Z", Kind.RES_Z);
-	    reservedWords.put("res_x_cart", Kind.RES_x_cart);
-	    reservedWords.put("res_y_cart", Kind.RES_y_cart);
-	    reservedWords.put("res_a_polar", Kind.RES_a_polar);
-	    reservedWords.put("res_r_polar", Kind.RES_r_polar);
-	    reservedWords.put("res_rand", Kind.RES_rand);
-	    reservedWords.put("res_sin", Kind.RES_sin);
-	    reservedWords.put("res_cos", Kind.RES_cos);
-	    reservedWords.put("res_atan", Kind.RES_atan);
-	    reservedWords.put("res_if", Kind.RES_if);
-	    reservedWords.put("res_while", Kind.RES_while);   
+	    reservedWords.put("image", Kind.RES_image);
+	    reservedWords.put("pixel", Kind.RES_pixel);
+	    reservedWords.put("int", Kind.RES_int);
+	    reservedWords.put("string", Kind.RES_string);
+	    reservedWords.put("void", Kind.RES_void);
+	    reservedWords.put("nil", Kind.RES_nil);
+	    reservedWords.put("load", Kind.RES_load);
+	    reservedWords.put("display", Kind.RES_display);
+	    reservedWords.put("write", Kind.RES_write);
+	    reservedWords.put("x", Kind.RES_x);
+	    reservedWords.put("y", Kind.RES_y);
+	    reservedWords.put("a", Kind.RES_a);
+	    reservedWords.put("r", Kind.RES_r);
+	    reservedWords.put("X", Kind.RES_X);
+	    reservedWords.put("Y", Kind.RES_Y);
+	    reservedWords.put("Z", Kind.RES_Z);
+	    reservedWords.put("x_cart", Kind.RES_x_cart);
+	    reservedWords.put("y_cart", Kind.RES_y_cart);
+	    reservedWords.put("a_polar", Kind.RES_a_polar);
+	    reservedWords.put("r_polar", Kind.RES_r_polar);
+	    reservedWords.put("rand", Kind.RES_rand);
+	    reservedWords.put("sin", Kind.RES_sin);
+	    reservedWords.put("cos", Kind.RES_cos);
+	    reservedWords.put("atan", Kind.RES_atan);
+	    reservedWords.put("if", Kind.RES_if);
+	    reservedWords.put("while", Kind.RES_while);   
 	    
 	  }
   
   
   
   private enum State {START, AMP, LINE, IN_IDENT, HAVE_ASTE,  
-	   IN_NUMB_LIT, IN_STR, HAVE_EQ, HAVE_LROW, HAVE_RROW, IN_COMMENT}
+	   IN_NUMB_LIT, IN_STR, HAVE_EQ, HAVE_LROW, HAVE_RROW, IN_COMMENT, BACKSLASH}
   
   //Constructor referenced from 1/23 Slides
   public Scanner(String input) {
@@ -99,8 +99,6 @@ class Scanner implements IScanner {
 	  int tokenLine = -1;
 	  int tokenColumn = -1;
 	  while (true) {
-		 System.out.println("State:" + state.toString());
-		 System.out.println("Character:" + ch);
 		 switch (state) {
 		 	case START -> {
 		 		tokenStart = pos;
@@ -350,16 +348,26 @@ class Scanner implements IScanner {
 		 		}
 		 		else {
 		 			int length = pos-tokenStart;
-		 			String text = input.substring(tokenStart+1, pos-1);
+		 			String text = input.substring(tokenStart, pos);
 	 	            Kind kind = reservedWords.get(text);
 	 	            if (kind == null){kind = Kind.IDENT;}
 	 	            return new Token(kind, tokenStart, length, Arrays.copyOfRange(inputChars, tokenStart, pos), tokenLine, tokenColumn);
 		 		}
 		 	}
 		 	case IN_STR -> {
+				 System.out.println("State:" + state.toString());
+				 System.out.println("Character:" + ch);
 			 	switch(ch) {
 			 			case 0-> {
 			 				error("Unterminated String");
+			 			}		 	
+				 		case '\t', '\n', '\b', '\r' -> {
+				 			nextChar();
+				 			state = State.IN_STR;
+				 		}
+			 			case '\\' -> {
+			 				nextChar();
+			 				state= State.BACKSLASH;
 			 			}
 				 		case '"' -> {
 				 			nextChar();
@@ -367,11 +375,24 @@ class Scanner implements IScanner {
 				 			String text = input.substring(tokenStart+1, pos-1);
 			 	            Kind kind = reservedWords.get(text);
 			 	            if (kind != null) {error("Reserved words in string literal");}
-				 			return new StringLitToken(Kind.NUM_LIT, tokenStart, length, Arrays.copyOfRange(inputChars, tokenStart, pos), tokenLine, tokenColumn);
+				 			return new StringLitToken(Kind.STRING_LIT, tokenStart, length, Arrays.copyOfRange(inputChars, tokenStart, pos), tokenLine, tokenColumn);
 			 			}
 				 		default -> {
 			 				nextChar();
 			 		
+			 		}
+		 		}
+		 	}
+		 	case BACKSLASH -> {
+				 System.out.println("State:" + state.toString());
+				 System.out.println("Character:" + ch);
+			 	switch(ch) {
+			 		case '\\', 't', 'n', 'b', 'r', '"' -> {
+			 			nextChar();
+			 			state = State.IN_STR;
+			 		}
+			 		default -> {
+			 			error("Illegal characters in string literal");
 			 		}
 		 		}
 		 	}
