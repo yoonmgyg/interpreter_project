@@ -53,11 +53,11 @@ class Scanner implements IScanner {
   private enum State {START, AMP, LINE, IN_IDENT, HAVE_ASTE,  
 	   IN_NUMB_LIT, IN_STR, HAVE_EQ, HAVE_LROW, HAVE_RROW, IN_COMMENT}
   
-  //Constructor refrenced from 1/23 Slides
+  //Constructor referenced from 1/23 Slides
   public Scanner(String input) {
 	  this.input = input;
 	  inputChars = Arrays.copyOf(input.toCharArray(),input.length()+1);
-	  pos = -1;
+	  pos = 0;
 	  ch = inputChars[0];
 	  column = 0;
 	  line = 0;
@@ -68,6 +68,8 @@ class Scanner implements IScanner {
   @Override
   public IToken next() throws LexicalException {
 	  IToken nextToken = scanTokens();
+	  System.out.println(nextToken.getKind().name());
+	  System.out.println(nextToken.getTokenString());
 	  return nextToken;
   }
   
@@ -94,14 +96,15 @@ class Scanner implements IScanner {
 	  State state = State.START;
 	  int tokenStart = -1;
 	  while (true) {
-		 nextChar();
+		  System.out.println("State:" + state.toString());
+		  System.out.println("Character:" + ch);
 		 switch (state) {
 		 	case START -> {
 		 		tokenStart = pos;
 	 			++column;
 		 		switch(ch) {
 			 		case 0 -> { //end of input
-			 		    return new Token(Kind.EOF, tokenStart, 0, inputChars, line, column);
+			 		    return new Token(Kind.EOF, tokenStart, 0, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 			 		}
 		 			case ' ', '\t', '\r', '\f' -> {nextChar();}
 		 			case '\n' -> {
@@ -111,64 +114,64 @@ class Scanner implements IScanner {
 		 			}
 		 			case '.' -> {
 		 				nextChar();
-			 		    return new Token(Kind.DOT, tokenStart, 1, inputChars, line, column);
+			 		    return new Token(Kind.DOT, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			case '?' -> {
 		 				nextChar();
-		 				return new Token(Kind.EOF, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.EOF, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			case '+' -> {
 		 				nextChar();
-		 				return new Token(Kind.PLUS, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.PLUS, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			case '(' -> {
 		 				nextChar();
-		 				return new Token(Kind.LPAREN, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.LPAREN, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 
 		 			case ')' -> {
 		 				nextChar();
-		 				return new Token(Kind.RPAREN, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.RPAREN, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			case '[' -> {
 		 				nextChar();
-		 				return new Token(Kind.LSQUARE, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.LSQUARE, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 			    	case ']' -> {
 		 				nextChar();
-			    		return new Token(Kind.RSQUARE, tokenStart, 1, inputChars, line, column);
+			    		return new Token(Kind.RSQUARE, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 			    	case '/' -> {
 		 				nextChar();
-			    		return new Token(Kind.DIV, tokenStart, 1, inputChars, line, column);
+			    		return new Token(Kind.DIV, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 			    	case '%' -> {
 		 				nextChar();
-			    		return new Token(Kind.MOD, tokenStart, 1, inputChars, line, column);
+			    		return new Token(Kind.MOD, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 			    	case ':' -> {
 		 				nextChar();
-			    		return new Token(Kind.COLON, tokenStart, 1, inputChars, line, column);
+			    		return new Token(Kind.COLON, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 			    	case ',' -> {
 		 				nextChar();
-			    		return new Token(Kind.COMMA, tokenStart, 1, inputChars, line, column);
+			    		return new Token(Kind.COMMA, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			case '{' -> {
 		 				nextChar();
-		 				return new Token(Kind.LCURLY, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.LCURLY, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			case '}' -> {
 		 				nextChar();
-		 				return new Token(Kind.RCURLY, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.RCURLY, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			case '!' -> {
 		 				nextChar();
-		 				return new Token(Kind.BANG, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.BANG, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			case '-' -> {
 		 				nextChar();
-		 				return new Token(Kind.MINUS, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.MINUS, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			case '*' -> {
 		 				nextChar();
@@ -203,7 +206,11 @@ class Scanner implements IScanner {
 		 				nextChar();
 			    		state = State.IN_COMMENT;
 			    	}
-			    	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
+			    	case '0' -> {
+			    	   nextChar();
+			    	   return new NumLitToken(Kind.NUM_LIT, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
+			    	}
+			    	case '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
 		 				nextChar();
 			    		state = State.IN_NUMB_LIT;
 			    	}
@@ -223,10 +230,10 @@ class Scanner implements IScanner {
 		 		switch(ch) {
 		 			case '=' -> {
 		 				nextChar();
-		 				return new Token(Kind.EQ, tokenStart, 2, inputChars, line, column);
+		 				return new Token(Kind.EQ, tokenStart, 2, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			default -> {
-		 				return new Token(Kind.ASSIGN, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.ASSIGN, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 
 		 		}
@@ -237,16 +244,16 @@ class Scanner implements IScanner {
 		 			case '-' -> {
 		 				nextChar();
 		 				if (ch == '>') {
-		 					return new Token(Kind.EXCHANGE, tokenStart, 3, inputChars, line, column);
+		 					return new Token(Kind.EXCHANGE, tokenStart, 3, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 				}
 		 				error ("Invalid LROW token");
 
 		 			}
 		 			case '=' -> {
-	 					return new Token(Kind.LE, tokenStart, 2, inputChars, line, column);
+	 					return new Token(Kind.LE, tokenStart, 2, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			default -> {
-		 				return new Token(Kind.LT, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.LT, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 
 		 			}
 
@@ -256,10 +263,10 @@ class Scanner implements IScanner {
 		 	case HAVE_RROW -> {
 		 		switch(ch) {
 		 			case '=' -> {
-	 					return new Token(Kind.GE, tokenStart, 2, inputChars, line, column);
+	 					return new Token(Kind.GE, tokenStart, 2, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 			}
 		 			default -> {
-		 				return new Token(Kind.GT, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.GT, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 
 		 			}
 
@@ -269,11 +276,11 @@ class Scanner implements IScanner {
 		 		switch(ch) {
 		 			case '&' -> {
 		 				nextChar();
-		 				return new Token(Kind.AND, tokenStart, 2, inputChars, line, column);
+		 				return new Token(Kind.AND, tokenStart, 2, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 
 		 			}
 		 			default -> {
-		 				return new Token(Kind.BITAND, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.BITAND, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 
 		 			}
 
@@ -284,11 +291,11 @@ class Scanner implements IScanner {
 		 		switch(ch) {
 		 			case '|' -> {
 		 				nextChar();
-		 				return new Token(Kind.OR, tokenStart, 2, inputChars, line, column);
+		 				return new Token(Kind.OR, tokenStart, 2, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 
 		 			}
 		 			default -> {
-		 				return new Token(Kind.BITOR, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.BITOR, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 
 		 			}
 
@@ -300,11 +307,11 @@ class Scanner implements IScanner {
 		 		switch(ch) {
 		 			case '*' -> {
 		 				nextChar();
-		 				return new Token(Kind.EXP, tokenStart, 2, inputChars, line, column);
+		 				return new Token(Kind.EXP, tokenStart, 2, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 
 		 			}
 		 			default -> {
-		 				return new Token(Kind.TIMES, tokenStart, 1, inputChars, line, column);
+		 				return new Token(Kind.TIMES, tokenStart, 1, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 
 		 			}
 
@@ -315,8 +322,8 @@ class Scanner implements IScanner {
 		 			nextChar();
 		 		}
 		 		else {
-		 			int length = pos-tokenStart;
-		 			return new NumLitToken(Kind.NUM_LIT, tokenStart, length, inputChars, line, column);
+		 			int length = pos;
+		 			return new NumLitToken(Kind.NUM_LIT, tokenStart, length, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 		}
 		 	}
 
@@ -329,17 +336,18 @@ class Scanner implements IScanner {
 		 			String text = input.substring(tokenStart, tokenStart + length);
 	 	            Kind kind = reservedWords.get(text);
 	 	            if (kind == null){kind = Kind.IDENT;}
-	 	            return new Token(kind, tokenStart, length, inputChars, line, column);
+	 	            return new Token(kind, tokenStart, length, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 		 		}
 		 	}
 		 	case IN_STR -> {
 			 	switch(ch) {
 				 		case '"' -> {
+				 			nextChar();
 				 			int length = pos-tokenStart;
-				 			String text = input.substring(tokenStart, tokenStart + length);
+				 			String text = input.substring(tokenStart+1, pos-1);
 			 	            Kind kind = reservedWords.get(text);
 			 	            if (kind != null) {error("Reserved words in string literal");}
-				 			return new StringLitToken(Kind.NUM_LIT, tokenStart, length, inputChars, line, column);
+				 			return new StringLitToken(Kind.NUM_LIT, tokenStart, length, Arrays.copyOfRange(inputChars, tokenStart, pos), line, column);
 			 			}
 				 		default -> {
 			 				nextChar();

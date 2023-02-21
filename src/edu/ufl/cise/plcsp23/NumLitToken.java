@@ -7,12 +7,8 @@ public class NumLitToken extends Token implements INumLitToken {
 		super(kind, pos, length, source, line, column);
 	}
 
-	public int getValue() throws LexicalException {
-		try {
-			return Integer.parseInt(source.toString());
-		} catch (NumberFormatException e) {
-			throw new LexicalException("Number Format Error");
-		}
+	public int getValue() {
+		return Integer.parseInt(String.valueOf(source));
 	}
 
 }
