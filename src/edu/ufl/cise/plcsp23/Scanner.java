@@ -68,10 +68,10 @@ class Scanner implements IScanner {
   @Override
   public IToken next() throws LexicalException {
 	  IToken nextToken = scanTokens();
-	  
+	  /*
 	  System.out.println(nextToken.getKind().name());
 	  System.out.println(nextToken.getTokenString() + "\n");
-	  
+	  */
 	  return nextToken;
   }
   
@@ -102,9 +102,10 @@ class Scanner implements IScanner {
 	  int tokenColumn = -1;
 	  System.out.println();
 	  while (true) {
-
+		  /*
 		  System.out.println("ch:" + ch);
 		  System.out.println(pos);
+		  */
 		 switch (state) {
 		 	case START -> {
 		 		tokenStart = pos;
