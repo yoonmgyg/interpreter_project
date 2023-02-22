@@ -98,6 +98,7 @@ class Scanner implements IScanner {
 	  int tokenStart = -1;
 	  int tokenLine = -1;
 	  int tokenColumn = -1;
+	  System.out.println(ch);
 	  while (true) {
 		 switch (state) {
 		 	case START -> {
@@ -361,7 +362,10 @@ class Scanner implements IScanner {
 			 			case 0-> {
 			 				error("Unterminated String");
 			 			}		 	
-				 		case '\t', '\n', '\b', '\r' -> {
+			 			case '\n' -> {
+			 				error("Illegal term in string");
+			 			}
+				 		case '\t', '\b', '\r' -> {
 				 			nextChar();
 				 			state = State.IN_STR;
 				 		}
@@ -387,7 +391,7 @@ class Scanner implements IScanner {
 				 System.out.println("State:" + state.toString());
 				 System.out.println("Character:" + ch);
 			 	switch(ch) {
-			 		case '\\', 't', 'n', 'b', 'r', '"' -> {
+			 		case 't', 'n', 'b', 'r', '"' -> {
 			 			nextChar();
 			 			state = State.IN_STR;
 			 		}

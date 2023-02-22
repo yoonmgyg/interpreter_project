@@ -209,10 +209,13 @@ class TestScanner_starter {
 				"\\k"
 				""";
 		IScanner scanner = CompilerComponentFactory.makeScanner(input);
-		checkString("\"\\t\"","\t", new SourceLocation(1,1), scanner.next());
+
+		checkString("\"\\t\"","\t", new SourceLocation(1,1), scanner.next());		
 		assertThrows(LexicalException.class, () -> {
 			scanner.next();
 		});
+			scanner.next();
+		
 	}
 	
 	@Test

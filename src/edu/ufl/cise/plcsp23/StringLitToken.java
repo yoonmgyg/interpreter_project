@@ -1,4 +1,3 @@
-
 package edu.ufl.cise.plcsp23;
 
 public class StringLitToken extends Token implements IStringLitToken{
@@ -12,7 +11,40 @@ public class StringLitToken extends Token implements IStringLitToken{
 	public String getValue() {
 		// TODO Auto-generated method stub
 		String text = String.valueOf(source);
-		return text.substring(1, text.length()-1);
+		text = text.substring(1, text.length()-1);
+
+		String stringValue = "";
+		boolean backslash=false;
+		for (char ch : text.toCharArray()) {
+			if (ch == '\\') {
+				backslash=true;
+			}
+			else if (backslash) {
+				switch (ch) {
+					case 't' -> {
+						stringValue += '\t';
+					}
+					case 'n' -> {
+						stringValue += '\n';
+					}
+					case 'b' -> {
+						stringValue += '\b';
+					}
+					case 'r' -> {
+						stringValue += '\r';
+					}
+					case '"' -> {
+						stringValue += '"';
+					}
+				}
+				backslash = false;
+			}
+			else {
+				stringValue += ch;
+			}
+		}
+		return stringValue;
+		
 	}
 
 }
