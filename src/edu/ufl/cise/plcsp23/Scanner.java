@@ -68,8 +68,10 @@ class Scanner implements IScanner {
   @Override
   public IToken next() throws LexicalException {
 	  IToken nextToken = scanTokens();
+	  
 	  System.out.println(nextToken.getKind().name());
 	  System.out.println(nextToken.getTokenString() + "\n");
+	  
 	  return nextToken;
   }
   
@@ -98,8 +100,11 @@ class Scanner implements IScanner {
 	  int tokenStart = -1;
 	  int tokenLine = -1;
 	  int tokenColumn = -1;
-	  System.out.println(ch);
+	  System.out.println();
 	  while (true) {
+
+		  System.out.println("ch:" + ch);
+		  System.out.println(pos);
 		 switch (state) {
 		 	case START -> {
 		 		tokenStart = pos;
@@ -329,7 +334,7 @@ class Scanner implements IScanner {
                     nextChar();
                 }
                 else {
-                    int length = pos;
+                    int length = pos-tokenStart;
                     String conv = String.valueOf(Arrays.copyOfRange(inputChars, tokenStart, pos));
                     try
                    {
@@ -356,8 +361,6 @@ class Scanner implements IScanner {
 		 		}
 		 	}
 		 	case IN_STR -> {
-				 System.out.println("State:" + state.toString());
-				 System.out.println("Character:" + ch);
 			 	switch(ch) {
 			 			case 0-> {
 			 				error("Unterminated String");
@@ -388,8 +391,6 @@ class Scanner implements IScanner {
 		 		}
 		 	}
 		 	case BACKSLASH -> {
-				 System.out.println("State:" + state.toString());
-				 System.out.println("Character:" + ch);
 			 	switch(ch) {
 			 		case 't', 'n', 'b', 'r', '"' -> {
 			 			nextChar();

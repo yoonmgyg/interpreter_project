@@ -37,7 +37,7 @@ public class Parser implements IParser
                Scanner = CompilerComponentFactory.makeScanner(parserInput);
                beginToken = Scanner.next();
                globalExpression = expr();
-           return globalExpression;
+               return globalExpression;
        }
     }
     
@@ -70,52 +70,52 @@ public class Parser implements IParser
     }
     
     public Expr primaryExpr() throws SyntaxException, LexicalException {
-            if (nextToken == null){
-                primaryToken = beginToken;
-            }
-            else
-            {
-                primaryToken = nextToken;
-                if(thruCondtional != true && primaryParenthesis != true) {
-                    nextToken = consume();
-                }
-            }
-            if (primaryToken.getKind() == IToken.Kind.NUM_LIT) {
-                if(nextToken == null) {
-                    nextToken = consume();
-                }
-                if(nextToken.getKind() == IToken.Kind.EOF || primaryParenthesis == true)
-                    return new NumLitExpr(primaryToken);
-                else
-                    expr();
-            }
-            
-            else if (primaryToken.getKind() == IToken.Kind.IDENT)
-                return new IdentExpr(primaryToken);         
-            
-            else if (primaryToken.getKind() == IToken.Kind.STRING_LIT) 
-                return new StringLitExpr(primaryToken);
-            
-            else if (primaryToken.getKind() == IToken.Kind.RES_Z) 
-                return new ZExpr(primaryToken); 
-            
-            else if (primaryToken.getKind() == IToken.Kind.RES_rand)            
-                return new RandomExpr(primaryToken);
-            
-            else if (primaryToken.getKind() == IToken.Kind.LPAREN || primaryToken.getKind() == IToken.Kind.RPAREN) {
-            	primaryParenthesis = true;
-            	
-            if(primaryToken.getKind() == IToken.Kind.RPAREN)
-            		return globalExpression;   
-            
-            else {
-               nextToken = consume();
-               beginToken = nextToken;
-               globalExpression = expr();
+        if (nextToken == null){
+            primaryToken = beginToken;
+        }
+        else
+        {
+            primaryToken = nextToken;
+            if(thruCondtional != true && primaryParenthesis != true) {
+                nextToken = consume();
             }
         }
+        if (primaryToken.getKind() == IToken.Kind.NUM_LIT) {
+            if(nextToken == null) {
+                nextToken = consume();
+            }
+            if(nextToken.getKind() == IToken.Kind.EOF || primaryParenthesis == true)
+                return new NumLitExpr(primaryToken);
+            else
+                expr();
+        }
+        else if (primaryToken.getKind() == IToken.Kind.IDENT)
+            return new IdentExpr(primaryToken);         
+        else if (primaryToken.getKind() == IToken.Kind.NUM_LIT)
+        	return new NumLitExpr(primaryToken);
+        else if (primaryToken.getKind() == IToken.Kind.STRING_LIT) 
+            return new StringLitExpr(primaryToken);
+        
+        else if (primaryToken.getKind() == IToken.Kind.RES_Z) 
+            return new ZExpr(primaryToken); 
+        
+        else if (primaryToken.getKind() == IToken.Kind.RES_rand)            
+            return new RandomExpr(primaryToken);
+        
+        else if (primaryToken.getKind() == IToken.Kind.LPAREN || primaryToken.getKind() == IToken.Kind.RPAREN) 
+        	primaryParenthesis = true;
         else            
-        	throw new SyntaxException("Parsing Error");            
+        	throw new SyntaxException("Parsing Error");   
+        
+        if(primaryToken.getKind() == IToken.Kind.RPAREN)
+        		return globalExpression;   
+            
+        else {
+           nextToken = consume();
+           beginToken = nextToken;
+           globalExpression = expr();
+        }
+                 
         return globalExpression;
     }
     // Unary needs primary
@@ -134,45 +134,46 @@ public class Parser implements IParser
 
     
     public Expr additiveExpr() throws SyntaxException, LexicalException {
-        globalkind = beginToken.getKind();
         Expr addReturn = multiplicativeExpr();
-        while (kind() == IToken.Kind.PLUS || globalkind == IToken.Kind.MINUS) // The second kind here throws an error when replaced with kind() function
-            consume();
+        while (kind() == IToken.Kind.PLUS || kind() == IToken.Kind.MINUS) {
+        	Expr rhs = multiplicativeExpr();
+        	return new BinaryExpr(currentToken, addReturn, kind(), rhs);
+        }
         return addReturn;
     }
     
     public Expr andExpr() throws SyntaxException, LexicalException {
         Expr andReturn = comparisonExpr();
         while (kind() == IToken.Kind.AND || kind() == IToken.Kind.BITAND) 
-            consume();
+            nextToken = consume();
         return andReturn;
     }
     
     public Expr comparisonExpr() throws SyntaxException, LexicalException {
         Expr comparisonReturn = powerExpr();
         while (kind() == IToken.Kind.GT || kind() == IToken.Kind.GE || kind() == IToken.Kind.LT || kind() == IToken.Kind.LE) 
-            consume();
+            nextToken = consume();
         return comparisonReturn;
     }   
 
     public Expr orExpr() throws SyntaxException, LexicalException {
         Expr orReturn = andExpr();
         while (kind() == IToken.Kind.OR || kind() == IToken.Kind.BITOR) 
-            consume();
+            nextToken = consume();
         return orReturn;
     }
 
     public Expr multiplicativeExpr() throws SyntaxException, LexicalException {
         Expr multiplyReturn = unaryExpr();
         while (kind() == IToken.Kind.TIMES || kind() == IToken.Kind.DIV || kind() == IToken.Kind.MOD) 
-            consume();
+            nextToken = consume();
         return multiplyReturn;
     }
     
     public Expr powerExpr() throws SyntaxException, LexicalException {
         Expr powerReturn = additiveExpr();
         while(kind() == IToken.Kind.EXP)
-            consume();
+            nextToken = consume();
         return powerReturn;
     }
     

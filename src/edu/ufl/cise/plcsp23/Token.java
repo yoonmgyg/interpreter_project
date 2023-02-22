@@ -25,7 +25,10 @@ public class Token implements IToken {
 	public Kind getKind() {
 		return kind;
 	}
-
+	
+	public int getLength() {
+		return length;
+	}
 	@Override
 	public String getTokenString() {
 		// TODO Auto-generated method stub
