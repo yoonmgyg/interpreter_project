@@ -11,11 +11,10 @@ import java.util.ArrayList;
 public class Parser implements IParser
 {
 	// Variables from Crafting Interpreters 6.2.1
-    private final List<IToken> tokenList = new ArrayList();
+    private final List<IToken> tokenList = new ArrayList<>();
     private int current = 0;
     private final String input;
     private IToken currentToken;
-    private List<NameDef> naDefList = new ArrayList<NameDef>(); 
     
     Parser(String input) {
     	this.input = input;
@@ -23,13 +22,14 @@ public class Parser implements IParser
     
     public AST parse() throws PLCException,SyntaxException{
     	IScanner Scanner = new Scanner(input);
+    	
     	IToken tokenInput;
     	do {
     		tokenInput = Scanner.next();
     		tokenList.add(tokenInput);
     	} while (tokenInput.getKind() != Kind.EOF);
     	currentToken = tokenList.get(0);
-    	return expr();
+    	return program();
     }
 
     // Helper functions referenced from Crafting Interpreters 6.2.1
@@ -78,116 +78,246 @@ public class Parser implements IParser
 	protected Kind match(Kind...kinds) throws SyntaxException{
 		for (Kind k: kinds) {
 			if (k == currentToken.getKind()) {
+				System.out.println(currentToken.getKind());
 				return consume().getKind();
 			}
 		}
 		throw new SyntaxException("Mismatching kind: " + currentToken.getKind().toString());
 	}
+	
+	public Program program() throws PLCException {
+		IToken firstToken=currentToken;
+		Type progType = type();
+		Ident progIdent = new Ident(currentToken);
+		match(Kind.IDENT);
+		match(Kind.LPAREN);
+		List<NameDef> progParamList = paramList();
+		System.out.println(progParamList.toString());
+		match(Kind.RPAREN);
+		Block progBlock = block();
+		return new Program(firstToken, progType, progIdent, progParamList, progBlock);
+	}
+	
+	
+	public Type type() throws PLCException {
+		IToken firstToken = currentToken;
+		Type type = null;
+		switch (firstToken.getKind()) {
+			case RES_image -> {
+				type = Type.IMAGE;
+				match(Kind.RES_image);
+			}
+			case RES_pixel -> {
+				type = Type.PIXEL;
+				match(Kind.RES_pixel);
+			}
+			case RES_int -> {
+				type = Type.INT;
+				match(Kind.RES_int);
+			}
+			case RES_string -> {
+				type = Type.STRING;
+				match(Kind.RES_string);
+			}
+			case RES_void -> {
+				type = Type.VOID;
+				match(Kind.RES_void);
+			}
+			default -> throw new PLCException("Invalid type: " + currentToken.getKind());
+		}
+		return type;
+		
+	}
 	public Dimension dimension() throws PLCException {
        Dimension dim = null;
-       IToken temp = null;
-       IToken nextToken = next();
        IToken firstToken = currentToken;
-       Expr e1 = null;
-       Expr e2 = null;
-       if(nextToken.getKind() == IToken.Kind.LSQUARE) {
-    	   temp = firstToken;
-           firstToken = nextToken;
-           nextToken = consume();
-           e1 = expr();
-           while (nextToken.getKind() != IToken.Kind.RSQUARE)
-        	   e2 = expr();
-           	   //consume();
-           dim = new Dimension(temp,e1,e2);
+	   if (isKind(Kind.LSQUARE)) {
+	       match(Kind.LSQUARE);
+	       Expr dimOne = expr();
+	       match(Kind.COMMA);
+	       Expr dimTwo = expr();
+	       match(Kind.RSQUARE);
+	       dim = new Dimension(firstToken, dimOne, dimTwo);
        }
        return dim;
     }
 	
 
-	   public NameDef nameDef() throws PLCException {
-	        Dimension dimension = null;
-	        IToken nextToken = next();
-	        IToken firstToken = currentToken;
-	        if(nextToken.getKind() != IToken.Kind.RES_void && nextToken.getKind() != IToken.Kind.RES_image &&
-	        		nextToken.getKind() != IToken.Kind.RES_int && nextToken.getKind() != IToken.Kind.RES_pixel &&
-	        		nextToken.getKind() != IToken.Kind.RES_string && firstToken.getKind() != IToken.Kind.RES_while &&
-	        		firstToken.getKind() != IToken.Kind.RES_string )
-	            throw  new SyntaxException("Invalid Syntax wrong type");
-	        Type typeval = Type.getType(nextToken);
-	        firstToken = nextToken;
-	        nextToken = consume();
-	        if(nextToken.getKind() != IToken.Kind.IDENT)
-	        {
-	            dimension = dimension();
-	            firstToken = nextToken;
-	            nextToken = consume();
-	        }
-	        return new NameDef(nextToken, typeval, dimension, new Ident(nextToken));
-	    }
+    public NameDef nameDef() throws PLCException {
+        IToken firstToken = currentToken;
+        Type nameDefType = null;
+        Dimension dim = null;
+        Ident nameIdent = null;
+	    try {
+	        nameDefType = type();
+	        dim = dimension();
+	        nameIdent = new Ident(currentToken);
+	        match(Kind.IDENT);
+        } catch (PLCException e) {
+        	return null;
+        }
+        return new NameDef(firstToken, nameDefType, dim, nameIdent);
+    }    
+    public List<NameDef> paramList() throws PLCException {
+		List<NameDef> paramList = new ArrayList<>();
+        IToken firstToken = currentToken;
+        NameDef paramNameDef = nameDef();
+        if (paramNameDef != null) {
+        	paramList.add(paramNameDef);
+        }
+        while (isKind(Kind.COMMA)) {
+        	match(Kind.COMMA);
+        	paramNameDef = nameDef();
+        	paramList.add(paramNameDef);
+        }
+        return paramList;
+    }
+    
 	public Declaration decl() throws PLCException {
 		IToken firstToken = currentToken;
-		Expr temp = null;
+		Expr e = null;
 		NameDef nameDef = nameDef();	
 		if (isKind(Kind.ASSIGN)) {
 			match(Kind.ASSIGN);
-			temp = expr();
+			e = expr();
 		}
-		return new Declaration(firstToken, nameDef, temp);
+		if (nameDef == null && e == null) {
+			return null;
+		}
+		return new Declaration(firstToken, nameDef, e);
 	}
 	
 	public Block block() throws PLCException {
-        IToken nextToken = next();
-        List<Declaration> declarationList = new ArrayList<>();
-        List<Statement> statementList = new ArrayList<>();
-        IToken firstToken = nextToken;
-        nextToken = consume();
-        while(nextToken.getKind() != IToken.Kind.RCURLY)
-        {
-            if(nextToken.getKind() != IToken.Kind.RES_write && nextToken.getKind() != IToken.Kind.RES_while)
-            {
-                if(nextToken.getKind() == IToken.Kind.DOT) {
-                    firstToken = nextToken;
-                    nextToken = consume();
-                    continue;
-                }
-                else if(firstToken.getKind() != IToken.Kind.RES_while)
-                    declarationList.add(decl());
-            }
-            else {
-                   firstToken = nextToken;
-                   nextToken = consume();
-                   statementList.add(statement());
-            }
-        }
-        return new Block(currentToken,declarationList,statementList);
+        IToken firstToken = currentToken;
+        match(Kind.LCURLY);
+        List<Declaration> declarationList = decList();
+        List<Statement> statementList = stateList();
+        match(Kind.RCURLY);
+        return new Block(firstToken,declarationList,statementList);
     }
+	public List<Declaration> decList() throws PLCException {
+		List<Declaration> declarationList = new ArrayList<>();
+		Declaration dec = decl();
+		while (dec != null) {
+			match(Kind.DOT);
+			declarationList.add(dec);
+			dec = decl();
+		}
+		return declarationList;
+	}
 	
+	public List<Statement> stateList() throws PLCException {
+		List<Statement> statementList = new ArrayList<>();
+		Statement statem = statement();
+		while (statem != null) {
+			match(Kind.DOT);
+			statementList.add(statem);
+			statem = statement();
+		}
+		return statementList;
+	}
+	public LValue lValue() throws PLCException {
+		IToken firstToken = currentToken;
+		try {
+			Ident lValueIdent = new Ident(currentToken);
+			match(Kind.IDENT);
+			PixelSelector lValuePix = pixel();
+			ColorChannel lValueChann = channel();
+			return new LValue(firstToken, lValueIdent, lValuePix, lValueChann);
+		} catch (PLCException e) {
+			return null;
+		}
+	}
 	public Statement statement() throws PLCException {
 		IToken firstToken = currentToken;
-		Statement state = null;
-		if (isKind(Kind.RES_write)) {
-			Expr ex = expr();
-			return new WriteStatement(firstToken, ex);
+		Expr stateExpr = null;
+		Block stateBlock = null;
+
+		LValue statementLValue = lValue();
+		if (statementLValue == null) {
+			switch (firstToken.getKind()) {
+				case RES_write -> {
+					match(Kind.RES_write);
+					stateExpr = expr();
+					return new WriteStatement(firstToken, stateExpr);
+				}
+				case RES_while -> {
+					match(Kind.RES_while);
+					stateExpr = expr();
+					stateBlock = block();
+					return new WhileStatement(firstToken, stateExpr, stateBlock);
+				}
+			}
 		}
-		
-		else if (isKind(Kind.RES_while)) {
-            Expr ex = expr();
-            Block progBlock = block();
-            return new WhileStatement(firstToken,ex,progBlock);
-		}	
-		return state;
+		else if (isKind(Kind.ASSIGN)){
+			match(Kind.ASSIGN);
+			stateExpr = expr();
+			return new AssignmentStatement(firstToken, statementLValue, stateExpr);
+		}
+		return null;
 		
 	}
-	public PixelSelector pixelSelector() throws PLCException {
-		if (currentToken.getKind() == Kind.LSQUARE) {			
-			Expr x = expr();
-			//Need to consume
-			Expr y = expr();
-			return new PixelSelector(currentToken, x, y);
+	public ColorChannel channel() throws SyntaxException {
+		IToken firstToken = currentToken;
+		ColorChannel chann = null;
+		if (isKind(Kind.COLON)) {
+			match(Kind.COLON);
+			switch(firstToken.getKind()) {
+				case RES_red -> {
+					chann = ColorChannel.red;
+				}
+				case RES_blu -> {
+					chann = ColorChannel.blu;
+					
+				}
+				case RES_grn -> {
+					chann = ColorChannel.grn;
+				}
+				default -> throw new SyntaxException("Invalid color channel: " + currentToken.getKind());
+			}
 		}
-		return null;		
+		return chann;
 	}
-	
+	public PixelSelector pixel() throws SyntaxException {
+		IToken firstToken = currentToken;
+		Expr pixelX = null;
+		Expr pixelY = null;
+		try {
+			match(Kind.LSQUARE);
+			pixelX = expr();
+			match(Kind.COMMA);
+			pixelY = expr();
+			match(Kind.RSQUARE);
+		} catch (PLCException e) {
+			return null;
+		}
+		return new PixelSelector(firstToken, pixelX, pixelY);
+	}
+	public ExpandedPixelExpr exPixel() throws SyntaxException {
+		IToken firstToken = currentToken;
+		Expr pixelX = null;
+		Expr pixelY = null;
+		Expr pixelZ = null;
+		try {
+			match(Kind.LSQUARE);
+			pixelX = expr();
+			match(Kind.COMMA);
+			pixelY = expr();
+			match(Kind.COMMA);
+			pixelZ = expr();
+			match(Kind.RSQUARE);
+		} catch (PLCException e) {
+			return null;
+		}
+		return new ExpandedPixelExpr(firstToken, pixelX, pixelY, pixelZ);
+	}
+
+	public PixelFuncExpr pixelFuncExpr() throws PLCException {
+		IToken firstToken = currentToken;
+		Kind func = match(Kind.RES_x_cart, Kind.RES_y_cart, Kind.RES_a_polar, Kind.RES_r_polar);
+		PixelSelector pixelSelector = pixel();
+		return new PixelFuncExpr(firstToken, func, pixelSelector);
+	}
 
 
 	private Expr expr() throws SyntaxException{
@@ -284,10 +414,18 @@ public class Parser implements IParser
 			e = new UnaryExpr(firstToken, op, rhs);
 		}
 		else {
-			e = primary();
+			e = unaryExprPostfix();
 		}
 		return e;
 	}
+	private Expr unaryExprPostfix() throws SyntaxException {
+		IToken firstToken = currentToken;
+		Expr e = primary();
+		PixelSelector postfixPixel = pixel();
+		ColorChannel postfixChannel = channel();
+		return new UnaryExprPostfix(firstToken, e, postfixPixel, postfixChannel);
+	}
+	
 	private Expr primary() throws SyntaxException {
 		IToken firstToken = currentToken;
 		Expr e = null;
@@ -317,6 +455,10 @@ public class Parser implements IParser
 				match(Kind.LPAREN);
 				e = expr();
 				match(Kind.RPAREN);
+			}
+			case RES_x, RES_y, RES_a, RES_r -> {
+				match(Kind.RES_x, Kind.RES_y, Kind.RES_a, Kind.RES_r);
+				e = new PredeclaredVarExpr(firstToken);
 			}
 			default -> {
 				throw new SyntaxException("Invalid Token: " + currentToken.getKind());
