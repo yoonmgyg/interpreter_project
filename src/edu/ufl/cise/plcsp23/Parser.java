@@ -1,6 +1,7 @@
 package edu.ufl.cise.plcsp23;
 
 import edu.ufl.cise.plcsp23.IToken.Kind;
+
 import edu.ufl.cise.plcsp23.ast.*;
 
 import java.util.List;
@@ -14,6 +15,7 @@ public class Parser implements IParser
     private int current = 0;
     private final String input;
     private IToken currentToken;
+    private List<NameDef> naDefList = new ArrayList<NameDef>(); 
     
     Parser(String input) {
     	this.input = input;
@@ -81,9 +83,113 @@ public class Parser implements IParser
 		}
 		throw new SyntaxException("Mismatching kind: " + currentToken.getKind().toString());
 	}
+	public Dimension dimension() throws PLCException {
+       Dimension dim = null;
+       IToken temp = null;
+       IToken nextToken = next();
+       IToken firstToken = currentToken;
+       Expr e1 = null;
+       Expr e2 = null;
+       if(nextToken.getKind() == IToken.Kind.LSQUARE) {
+    	   temp = firstToken;
+           firstToken = nextToken;
+           nextToken = consume();
+           e1 = expr();
+           while (nextToken.getKind() != IToken.Kind.RSQUARE)
+        	   e2 = expr();
+           	   //consume();
+           dim = new Dimension(temp,e1,e2);
+       }
+       return dim;
+    }
 	
+
+	   public NameDef nameDef() throws PLCException {
+	        Dimension dimension = null;
+	        IToken nextToken = next();
+	        IToken firstToken = currentToken;
+	        if(nextToken.getKind() != IToken.Kind.RES_void && nextToken.getKind() != IToken.Kind.RES_image &&
+	        		nextToken.getKind() != IToken.Kind.RES_int && nextToken.getKind() != IToken.Kind.RES_pixel &&
+	        		nextToken.getKind() != IToken.Kind.RES_string && firstToken.getKind() != IToken.Kind.RES_while &&
+	        		firstToken.getKind() != IToken.Kind.RES_string )
+	            throw  new SyntaxException("Invalid Syntax wrong type");
+	        Type typeval = Type.getType(nextToken);
+	        firstToken = nextToken;
+	        nextToken = consume();
+	        if(nextToken.getKind() != IToken.Kind.IDENT)
+	        {
+	            dimension = dimension();
+	            firstToken = nextToken;
+	            nextToken = consume();
+	        }
+	        return new NameDef(nextToken, typeval, dimension, new Ident(nextToken));
+	    }
+	public Declaration decl() throws PLCException {
+		IToken firstToken = currentToken;
+		Expr temp = null;
+		NameDef nameDef = nameDef();	
+		if (isKind(Kind.ASSIGN)) {
+			match(Kind.ASSIGN);
+			temp = expr();
+		}
+		return new Declaration(firstToken, nameDef, temp);
+	}
 	
+	public Block block() throws PLCException {
+        IToken nextToken = next();
+        List<Declaration> declarationList = new ArrayList<>();
+        List<Statement> statementList = new ArrayList<>();
+        IToken firstToken = nextToken;
+        nextToken = consume();
+        while(nextToken.getKind() != IToken.Kind.RCURLY)
+        {
+            if(nextToken.getKind() != IToken.Kind.RES_write && nextToken.getKind() != IToken.Kind.RES_while)
+            {
+                if(nextToken.getKind() == IToken.Kind.DOT) {
+                    firstToken = nextToken;
+                    nextToken = consume();
+                    continue;
+                }
+                else if(firstToken.getKind() != IToken.Kind.RES_while)
+                    declarationList.add(decl());
+            }
+            else {
+                   firstToken = nextToken;
+                   nextToken = consume();
+                   statementList.add(statement());
+            }
+        }
+        return new Block(currentToken,declarationList,statementList);
+    }
 	
+	public Statement statement() throws PLCException {
+		IToken firstToken = currentToken;
+		Statement state = null;
+		if (isKind(Kind.RES_write)) {
+			Expr ex = expr();
+			return new WriteStatement(firstToken, ex);
+		}
+		
+		else if (isKind(Kind.RES_while)) {
+            Expr ex = expr();
+            Block progBlock = block();
+            return new WhileStatement(firstToken,ex,progBlock);
+		}	
+		return state;
+		
+	}
+	public PixelSelector pixelSelector() throws PLCException {
+		if (currentToken.getKind() == Kind.LSQUARE) {			
+			Expr x = expr();
+			//Need to consume
+			Expr y = expr();
+			return new PixelSelector(currentToken, x, y);
+		}
+		return null;		
+	}
+	
+
+
 	private Expr expr() throws SyntaxException{
 		Expr e = conditional();
 		if (e == null) {
