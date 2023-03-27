@@ -94,7 +94,7 @@ class Scanner implements IScanner {
 	 return isLetter(ch) || (ch == '$') || (ch == '_');
   }
   private void error(String message) throws LexicalException{
-	 throw new LexicalException("Error at pos " + pos + ": " + message); 
+	 throw new LexicalException("Error at line " + line + ", column " + column + " : " + message); 
   }
 
   
@@ -217,6 +217,9 @@ class Scanner implements IScanner {
 			    	case '~' -> {
 		 				nextChar();
 			    		state = State.IN_COMMENT;
+			    	}
+			    	case ';' -> {
+			    		nextChar();
 			    	}
 			    	case '0' -> {
 			    	   nextChar();

@@ -99,7 +99,7 @@ public class Parser implements IParser
 	}
 	
 	
-	public Type type() throws PLCException {
+	public Type type() throws SyntaxException {
 		IToken firstToken = currentToken;
 		Type type = null;
 		switch (firstToken.getKind()) {
@@ -123,7 +123,7 @@ public class Parser implements IParser
 				type = Type.VOID;
 				match(Kind.RES_void);
 			}
-			default -> throw new PLCException("Invalid type: " + currentToken.getKind());
+			default -> throw new SyntaxException("Invalid type: " + currentToken.getKind());
 		}
 		return type;
 		
@@ -262,15 +262,18 @@ public class Parser implements IParser
 		ColorChannel chann = null;
 		if (isKind(Kind.COLON)) {
 			match(Kind.COLON);
-			switch(firstToken.getKind()) {
+			switch(currentToken.getKind()) {
 				case RES_red -> {
+					match(Kind.RES_red);
 					chann = ColorChannel.red;
 				}
 				case RES_blu -> {
+					match(Kind.RES_blu);
 					chann = ColorChannel.blu;
 					
 				}
 				case RES_grn -> {
+					match(Kind.RES_grn);
 					chann = ColorChannel.grn;
 				}
 				default -> throw new SyntaxException("Invalid color channel: " + currentToken.getKind());
@@ -286,8 +289,9 @@ public class Parser implements IParser
 			match(Kind.LSQUARE);
 			pixelX = expr();
 			match(Kind.COMMA);
-			pixelY = expr();
+			pixelY = expr(); 
 			match(Kind.RSQUARE);
+			
 		} catch (PLCException e) {
 			return null;
 		}
@@ -312,7 +316,7 @@ public class Parser implements IParser
 		return new ExpandedPixelExpr(firstToken, pixelX, pixelY, pixelZ);
 	}
 
-	public PixelFuncExpr pixelFuncExpr() throws PLCException {
+	public PixelFuncExpr pixelFuncExpr() throws SyntaxException {
 		IToken firstToken = currentToken;
 		Kind func = match(Kind.RES_x_cart, Kind.RES_y_cart, Kind.RES_a_polar, Kind.RES_r_polar);
 		PixelSelector pixelSelector = pixel();
@@ -423,7 +427,10 @@ public class Parser implements IParser
 		Expr e = primary();
 		PixelSelector postfixPixel = pixel();
 		ColorChannel postfixChannel = channel();
-		return new UnaryExprPostfix(firstToken, e, postfixPixel, postfixChannel);
+		if (postfixPixel != null || postfixChannel != null) {
+			return new UnaryExprPostfix(firstToken, e, postfixPixel, postfixChannel);
+		}
+		return e;
 	}
 	
 	private Expr primary() throws SyntaxException {
@@ -455,6 +462,12 @@ public class Parser implements IParser
 				match(Kind.LPAREN);
 				e = expr();
 				match(Kind.RPAREN);
+			}
+			case LSQUARE -> {
+				e = exPixel();
+			}
+			case RES_x_cart, RES_y_cart, RES_a_polar, RES_r_polar -> {
+				e = pixelFuncExpr();
 			}
 			case RES_x, RES_y, RES_a, RES_r -> {
 				match(Kind.RES_x, Kind.RES_y, Kind.RES_a, Kind.RES_r);
