@@ -77,8 +77,8 @@ public class Parser implements IParser
 	}
 	protected Kind match(Kind...kinds) throws SyntaxException{
 		for (Kind k: kinds) {
+			System.out.println(k);
 			if (k == currentToken.getKind()) {
-				System.out.println(currentToken.getKind());
 				return consume().getKind();
 			}
 		}
@@ -92,14 +92,14 @@ public class Parser implements IParser
 		match(Kind.IDENT);
 		match(Kind.LPAREN);
 		List<NameDef> progParamList = paramList();
-		System.out.println(progParamList.toString());
+		//System.out.println(progParamList.toString());
 		match(Kind.RPAREN);
 		Block progBlock = block();
 		return new Program(firstToken, progType, progIdent, progParamList, progBlock);
 	}
 	
 	
-	public Type type() throws SyntaxException {
+	public Type type() throws PLCException {
 		IToken firstToken = currentToken;
 		Type type = null;
 		switch (firstToken.getKind()) {
@@ -123,6 +123,10 @@ public class Parser implements IParser
 				type = Type.VOID;
 				match(Kind.RES_void);
 			}
+			//case COLON -> {
+		//		type = Type.COLON;
+		//		match(Kind.COLON);
+		//	}
 			default -> throw new SyntaxException("Invalid type: " + currentToken.getKind());
 		}
 		return type;
@@ -247,12 +251,22 @@ public class Parser implements IParser
 					stateBlock = block();
 					return new WhileStatement(firstToken, stateExpr, stateBlock);
 				}
+				case COLON -> {
+					match(Kind.COLON);
+					stateExpr = expr();
+					return new ReturnStatement(firstToken, stateExpr);
+				}
 			}
 		}
 		else if (isKind(Kind.ASSIGN)){
 			match(Kind.ASSIGN);
 			stateExpr = expr();
 			return new AssignmentStatement(firstToken, statementLValue, stateExpr);
+		}
+		else if (isKind(Kind.COLON)){
+			match(Kind.COLON);
+			stateExpr = expr();
+			return new ReturnStatement(firstToken, stateExpr);
 		}
 		return null;
 		
@@ -264,17 +278,19 @@ public class Parser implements IParser
 			match(Kind.COLON);
 			switch(currentToken.getKind()) {
 				case RES_red -> {
-					match(Kind.RES_red);
 					chann = ColorChannel.red;
+					match(Kind.RES_red);
 				}
 				case RES_blu -> {
-					match(Kind.RES_blu);
 					chann = ColorChannel.blu;
+					match(Kind.RES_blu);
+
 					
 				}
 				case RES_grn -> {
-					match(Kind.RES_grn);
 					chann = ColorChannel.grn;
+					match(Kind.RES_grn);
+
 				}
 				default -> throw new SyntaxException("Invalid color channel: " + currentToken.getKind());
 			}
@@ -289,9 +305,8 @@ public class Parser implements IParser
 			match(Kind.LSQUARE);
 			pixelX = expr();
 			match(Kind.COMMA);
-			pixelY = expr(); 
+			pixelY = expr();
 			match(Kind.RSQUARE);
-			
 		} catch (PLCException e) {
 			return null;
 		}
@@ -423,15 +438,15 @@ public class Parser implements IParser
 		return e;
 	}
 	private Expr unaryExprPostfix() throws SyntaxException {
-		IToken firstToken = currentToken;
-		Expr e = primary();
-		PixelSelector postfixPixel = pixel();
-		ColorChannel postfixChannel = channel();
-		if (postfixPixel != null || postfixChannel != null) {
-			return new UnaryExprPostfix(firstToken, e, postfixPixel, postfixChannel);
-		}
-		return e;
-	}
+        IToken firstToken = currentToken;
+        Expr e = primary();
+        PixelSelector postfixPixel = pixel();
+        ColorChannel postfixChannel = channel();
+        if (postfixPixel != null || postfixChannel != null) {
+            return new UnaryExprPostfix(firstToken, e, postfixPixel, postfixChannel);
+        }
+        return e;
+    }
 	
 	private Expr primary() throws SyntaxException {
 		IToken firstToken = currentToken;
@@ -466,12 +481,13 @@ public class Parser implements IParser
 			case LSQUARE -> {
 				e = exPixel();
 			}
-			case RES_x_cart, RES_y_cart, RES_a_polar, RES_r_polar -> {
-				e = pixelFuncExpr();
-			}
 			case RES_x, RES_y, RES_a, RES_r -> {
 				match(Kind.RES_x, Kind.RES_y, Kind.RES_a, Kind.RES_r);
 				e = new PredeclaredVarExpr(firstToken);
+			}
+			case RES_x_cart, RES_y_cart, RES_a_polar, RES_r_polar -> {
+				//match(Kind.RES_x_cart, Kind.RES_y_cart, Kind.RES_a_polar, Kind.RES_r_polar);
+				e = pixelFuncExpr();
 			}
 			default -> {
 				throw new SyntaxException("Invalid Token: " + currentToken.getKind());
