@@ -23,5 +23,8 @@ public class CompilerComponentFactory {
 	public static ASTVisitor makeTypeChecker() {
 		return new ASTVisit();
 		}
-
+	
+	public static ASTVisitor makeCodeGenerator(String input) {
+		return new CodeGenerator(input);
+	}
 }

@@ -103,7 +103,6 @@ class Scanner implements IScanner {
 	  int tokenStart = -1;
 	  int tokenLine = -1;
 	  int tokenColumn = -1;
-	  System.out.println();
 	  while (true) {
 		  /*
 		  System.out.println("ch:" + ch);

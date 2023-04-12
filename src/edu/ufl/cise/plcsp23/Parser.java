@@ -77,7 +77,7 @@ public class Parser implements IParser
 	}
 	protected Kind match(Kind...kinds) throws SyntaxException{
 		for (Kind k: kinds) {
-			System.out.println(k);
+			/* System.out.println(k); */
 			if (k == currentToken.getKind()) {
 				return consume().getKind();
 			}
@@ -290,7 +290,6 @@ public class Parser implements IParser
 				case RES_grn -> {
 					chann = ColorChannel.grn;
 					match(Kind.RES_grn);
-
 				}
 				default -> throw new SyntaxException("Invalid color channel: " + currentToken.getKind());
 			}
