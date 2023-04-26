@@ -132,14 +132,16 @@ public class ASTVisit implements ASTVisitor{
     	LValue vASLValue;
     	vASLValue = statementAssign.getLv();        
         Type vASLValueType;
-        vASLValueType = (Type) vASLValue.visit(this, arg);        
+        vASLValueType = (Type) vASLValue.visit(this, arg); 
+        /*
         if((vASLValueType == Type.IMAGE && vASType2 != Type.IMAGE && vASType2 != Type.PIXEL && vASType2 != Type.STRING) ||
         		(vASLValueType == Type.PIXEL && vASType2 != Type.PIXEL && vASType2 != Type.INT)||
         		(vASLValueType == Type.INT && vASType2 != Type.INT && vASType2 != Type.PIXEL) ||
         		(vASLValueType == Type.STRING && vASType2 != Type.STRING && vASType2 != Type.INT && vASType2 != Type.PIXEL && vASType2 != Type.IMAGE)){
                 throw new TypeCheckException("Mismatch");
         }
-        else
+        */
+        // else
         	return null;
     }
 
@@ -384,9 +386,6 @@ public class ASTVisit implements ASTVisitor{
         boolean ps = true;
         if(lValue.getPixelSelector() == null)
             ps = false;
-        System.out.println(lvt);
-        System.out.println(lValue.getPixelSelector());
-        System.out.println(lValue.getColor());
 
         if (lvt == Type.IMAGE) {
             if(!cs && !ps) {
@@ -394,16 +393,16 @@ public class ASTVisit implements ASTVisitor{
                 return Type.IMAGE;
             }
             else if (ps && !cs){
-            	lValue.setType(Type.PIXEL);
-                return Type.PIXEL;
+            	lValue.setType(Type.IMAGE);
+                return Type.IMAGE;
             }
             else if (cs && !ps){
             	lValue.setType(Type.IMAGE);
                 return Type.IMAGE;
             }
             else{
-            	lValue.setType(Type.INT);
-                return Type.INT;
+            	lValue.setType(Type.IMAGE);
+                return Type.IMAGE;
             }
         }
         else if (lvt == Type.PIXEL) {

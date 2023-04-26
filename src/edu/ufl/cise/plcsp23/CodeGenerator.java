@@ -134,7 +134,6 @@ public class CodeGenerator implements ASTVisitor {
 						case PIXEL -> {
 							sb.append(" = ");
 							imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
-							sb.append("PixelOps.pack(");
 							decInit.visit(this, arg);
 							sb.append(")");						}
 						default -> {
@@ -472,22 +471,20 @@ public class CodeGenerator implements ASTVisitor {
 		StringBuilder sb = (StringBuilder) arg;
 		LValue leftVal = statementAssign.getLv();
 		Expr rightVal = statementAssign.getE();
-		System.out.println(leftVal.getType());
-
 		if (leftVal.getType() == Type.PIXEL) {	
+			imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
 			leftVal.visit(this, arg);
 			sb.append(" = ");
-			sb.append("PixelOps.pack(");
 			rightVal.visit(this, arg);
-			sb.append(")");
 		}
 		
 		else if (leftVal.getType() == Type.IMAGE) {
 			if (leftVal.getColor() == null  && leftVal.getPixelSelector() == null) {
 				if (rightVal.getType() == Type.STRING) {
+					System.out.println(leftVal.getPixelSelector());
 					imports.add("edu.ufl.cise.plcsp23.runtime.FileURLIO");
 					imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
-					sb.append("ImageOps.copyInto(FileURLIO.readImage(\"");
+					sb.append("ImageOps.copyInto(FileURLIO.readImage(");
 					rightVal.visit(this, arg);
 					sb.append(") ," + leftVal.getIdent().getName() + ")");
 					
@@ -513,10 +510,10 @@ public class CodeGenerator implements ASTVisitor {
 			}
 			else if (leftVal.getColor() == null  && leftVal.getPixelSelector() != null) {
 				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
-				sb.append("for (int y = 0; y !=" + leftVal.getIdent().getName() + ".getHeight(); y++}){\n"
+				sb.append("for (int y = 0; y !=" + leftVal.getIdent().getName() + ".getHeight(); y++){\n"
 						+ "for (int x = 0; x !=" + leftVal.getIdent().getName() + ".getWidth(); x++){\n"
-						+ "ImageOps.setRGB(" + leftVal.getIdent().getName() + ",x,y," 
-						+ "ImageOps.getRGB(");
+						+ "ImageOps.setRGB(" + leftVal.getIdent().getName() + ",x,y,");
+				sb.append("(");
 				rightVal.visit(this, arg);
 				sb.append(")); }}");
 						
@@ -524,7 +521,7 @@ public class CodeGenerator implements ASTVisitor {
 			else if (leftVal.getColor() != null  && leftVal.getPixelSelector() != null) {
 				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
 				imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
-				sb.append("for (int y = 0; y !=" + leftVal.getIdent().getName() + ".getHeight(); y++}){\n"
+				sb.append("for (int y = 0; y !=" + leftVal.getIdent().getName() + ".getHeight(); y++){\n"
 						+ "for (int x = 0; x !=" + leftVal.getIdent().getName() + ".getWidth(); x++){\n"
 						+ "ImageOps.setRGB(" + leftVal.getIdent().getName() + ",x,y," 
 						+ "PixelOps.set");
@@ -539,7 +536,7 @@ public class CodeGenerator implements ASTVisitor {
 						sb.append("Blu");
 					}
 				}
-				sb.append("(");
+				sb.append("(ImageOps.getRGB(" + leftVal.getIdent().getName() + ",x,y),");
 				rightVal.visit(this, arg);
 				sb.append(")); }}");
 						
@@ -622,6 +619,21 @@ public class CodeGenerator implements ASTVisitor {
 	@Override
 	public Object visitPredeclaredVarExpr(PredeclaredVarExpr predeclaredVarExpr, Object arg) throws PLCException {
 		StringBuilder sb = (StringBuilder) arg;
+		if (predeclaredVarExpr.getKind() == Kind.RES_x) {
+			sb.append("x");
+		}
+		else if (predeclaredVarExpr.getKind() == Kind.RES_y) {
+			sb.append("y");
+		}
+		else if (predeclaredVarExpr.getKind() == Kind.RES_a) {
+			sb.append("a");
+		}
+		else if (predeclaredVarExpr.getKind() == Kind.RES_r) {
+			sb.append("r");
+		}
+		else {
+			throw new PLCException("Invalid predeclared variable");
+		}
 		return sb;
 	}
 
@@ -657,7 +669,6 @@ public class CodeGenerator implements ASTVisitor {
 	@Override
 	public Object visitUnaryExprPostFix(UnaryExprPostfix unaryExprPostfix, Object arg) throws PLCException {
 		StringBuilder sb = (StringBuilder) arg;
-		System.out.println(unaryExprPostfix.getPrimary().getType());
 		if (unaryExprPostfix.getPrimary().getType() == Type.IMAGE) {
 			if (unaryExprPostfix.getPixel() != null && unaryExprPostfix.getColor() == null) {
 				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
