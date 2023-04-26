@@ -7,10 +7,10 @@ import java.util.List;
 
 import edu.ufl.cise.plcsp23.IToken.Kind;
 import edu.ufl.cise.plcsp23.ast.*;
+import edu.ufl.cise.plcsp23.runtime.PixelOps;
 
 public class CodeGenerator implements ASTVisitor {
 	HashSet<String> imports = new HashSet<String>(); 
-	HashMap<String, Type> varTypes = new HashMap<String, Type>();
 	String packageName;
 	boolean convertToInt = false;
 	
@@ -21,6 +21,14 @@ public class CodeGenerator implements ASTVisitor {
 	private String TypeToString(Type type) {
 		if (type == Type.STRING) {
 			return "String";
+		}
+		else if (type == Type.PIXEL) {
+			return "int";
+			
+		}
+		else if (type == Type.IMAGE) {
+			imports.add("java.awt.image.BufferedImage");
+			return "BufferedImage";
 		}
 		else {
 			return type.toString().toLowerCase();
@@ -41,7 +49,6 @@ public class CodeGenerator implements ASTVisitor {
 
 		// method
 		Type programType = program.getType();
-		varTypes.put("return", programType);
 		sb.append("public static " + TypeToString(programType) + " apply(");
 		
 		// parameters
@@ -93,24 +100,105 @@ public class CodeGenerator implements ASTVisitor {
 	}
 	public Object visitDeclaration(Declaration declaration, Object arg) throws PLCException {
 		StringBuilder sb = (StringBuilder) arg;
-		declaration.getNameDef().visit(this, sb);
-		Expr decInit = declaration.getInitializer();	
-		if (declaration.getNameDef().getType() == Type.INT) {
-			convertToInt = true;
+		NameDef decND = declaration.getNameDef();
+		Expr decInit = declaration.getInitializer();				
+		decND.visit(this, arg);		
+		if (decND.getType() == Type.PIXEL) {
+			imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
+			sb.append(" = ");
+			decInit.visit(this,arg);
 		}
-			
-		if (decInit != null) {
-			sb.append("=");
-			decInit.visit(this, sb);
-			/*
-			if (declaration.getNameDef().getType() == Type.STRING && decInit.getType()== Type.INT) {
-				sb.append(" == ");
-				NumLitExpr decInitNo = (NumLitExpr) declaration.getInitializer();
-				sb.append(decInitNo.getValue());
-				
-			}*/
-		}		
-		convertToInt = false;
+		else if (decND.getType() == Type.IMAGE) {	
+			// initializer
+			if (decInit != null) {
+				// null dimension
+				Type initType = decInit.getType();
+				if (decND.getDimension() == null) {
+					switch(initType) {
+						case STRING -> {
+							sb.append(" = ");
+							imports.add("edu.ufl.cise.plcsp23.runtime.FileURLIO");
+							sb.append("FileURLIO.readImage(");
+							decInit.visit(this, arg);
+							sb.append(")");
+						}
+						case IMAGE -> {
+							sb.append(" = ");
+							imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+							sb.append("ImageOps.cloneImage(");
+							decInit.visit(this, arg);
+							sb.append(")");
+						}
+						case PIXEL -> {
+							sb.append(" = ");
+							imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
+							sb.append("PixelOps.pack(");
+							decInit.visit(this, arg);
+							sb.append(")");						}
+						default -> {
+							throw new PLCException("Invalid initializer type " + decInit.getType() + " with null dimension");
+						}
+					}
+				}
+				else if (decND.getDimension() != null){
+					switch(initType) {
+						case STRING -> {
+							sb.append(" = ");
+							imports.add("edu.ufl.cise.plcsp23.runtime.FileURLIO");
+							sb.append("FileURLIO.readImage(");
+							decInit.visit(this, arg);
+							sb.append(",");	
+							decND.getDimension().visit(this, arg);
+							sb.append(")");
+						}
+						case IMAGE -> {
+							sb.append(" = ");
+							imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+							sb.append("ImageOps.copyAndResize(");
+							decInit.visit(this, arg);
+							sb.append(",");
+							decND.getDimension().visit(this, arg);
+							sb.append(")");						}
+						case PIXEL -> {
+							imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+							sb.append(" = ImageOps.makeImage(");
+							decND.getDimension().getWidth().visit(this,arg);
+							sb.append(",");
+							decND.getDimension().getHeight().visit(this, arg);
+							sb.append(");\n");
+							sb.append("ImageOps.setAllPixels(");
+							sb.append(decND.getIdent().getName() + ",");
+							decInit.visit(this, arg);
+							sb.append(")");
+						}
+						default -> {
+							throw new PLCException("Invalid initializer type " + decInit.getType() + " with dimension");
+						}
+					}
+				}
+				// dimension
+			}
+			else if (decND.getDimension() != null) {
+				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+				decND.visit(this, arg);
+				sb.append(" = ImageOps.makeImage(");
+				decND.getDimension().getWidth().visit(this,arg);
+				sb.append(",");
+				decND.getDimension().getHeight().visit(this, arg);
+				sb.append(")");
+			} 
+		}
+		
+		else {
+			if (decND.getType() == Type.INT) {
+				convertToInt = true;
+			}
+			if (decInit != null) {
+				sb.append("=");
+				decInit.visit(this, sb);
+			}		
+			convertToInt = false;
+		}
 		return sb;
 	}
 
@@ -118,7 +206,6 @@ public class CodeGenerator implements ASTVisitor {
 		StringBuilder sb = (StringBuilder) arg;
 		sb.append(TypeToString(nameDef.getType()) + " ");
 		nameDef.getIdent().visit(this, sb);
-		varTypes.put(nameDef.getIdent().getName(), nameDef.getType());
 		return sb;
 
 	}
@@ -170,11 +257,57 @@ public class CodeGenerator implements ASTVisitor {
 	public Object visitBinaryExpr(BinaryExpr binaryExpr, Object arg) throws PLCException {
 		StringBuilder sb = (StringBuilder) arg;   
 		Kind binOp = binaryExpr.getOp();
-		if (binOp == Kind.EXP) {
+		Expr leftExpr = binaryExpr.getLeft();
+		Expr rightExpr = binaryExpr.getRight();
+		System.out.println(leftExpr.toString());
+		System.out.println(rightExpr.getType());
+		if (leftExpr.getType() == Type.IMAGE && rightExpr.getType() == Type.IMAGE) {
+			if (binOp == Kind.PLUS || binOp == Kind.MINUS || binOp == Kind.TIMES || binOp == Kind.DIV || binOp == Kind.MOD) {		
+				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+				sb.append("ImageOps.binaryImageImageOp(");
+				leftExpr.visit(this, arg);
+				sb.append(",");
+				rightExpr.visit(this, arg);
+				sb.append(")");
+
+			}
+			else {
+				throw new PLCException("Invalid image operator");
+			}
+		}
+		else if (leftExpr.getType() == Type.IMAGE && rightExpr.getType() == Type.INT) {
+			if (binOp == Kind.PLUS || binOp == Kind.MINUS || binOp == Kind.TIMES || binOp == Kind.DIV || binOp == Kind.MOD) {		
+				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+				sb.append("ImageOps.binaryImageScalarOp(");
+				leftExpr.visit(this, arg);
+				sb.append(",");
+				rightExpr.visit(this, arg);
+				sb.append(")");
+
+			}
+			else {
+				throw new PLCException("Invalid image operator");
+			}
+		}
+		else if (leftExpr.getType() == Type.PIXEL && rightExpr.getType() == Type.PIXEL) {
+			if (binOp == Kind.PLUS || binOp == Kind.MINUS || binOp == Kind.TIMES || binOp == Kind.DIV || binOp == Kind.MOD) {		
+				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+				sb.append("ImageOps.binaryImagePixelOp(");
+				leftExpr.visit(this, arg);
+				sb.append(",");
+				rightExpr.visit(this, arg);
+				sb.append(")");
+
+			}
+			else {
+				throw new PLCException("Invalid image operator");
+			}
+		}
+		else if (binOp == Kind.EXP) {
 			sb.append("Math.pow(");
-			binaryExpr.getLeft().visit(this, sb);
+			leftExpr.visit(this, sb);
 			sb.append(",");
-			binaryExpr.getRight().visit(this, sb);
+			rightExpr.visit(this, sb);
 		}
 		else if (binOp == Kind.LT || binOp == Kind.GT || binOp == Kind.LE || binOp == Kind.GE || binOp == Kind.EQ || binOp == Kind.OR || binOp ==Kind.AND) {
 
@@ -182,7 +315,7 @@ public class CodeGenerator implements ASTVisitor {
 			if (convertToInt) {
 				sb.append("(");
 			}
-			binaryExpr.getLeft().visit(this, sb);
+			leftExpr.visit(this, sb);
 			switch (binOp) {
 				case LT -> sb.append("<");
 				case GT -> sb.append(">");
@@ -193,7 +326,7 @@ public class CodeGenerator implements ASTVisitor {
 				case AND -> sb.append("&");
 			}
 			sb.append(" ");
-			binaryExpr.getRight().visit(this, sb);
+			rightExpr.visit(this, sb);
 			sb.append(")");
 			if (convertToInt) {
 				sb.append("? 1 : 0)");
@@ -202,19 +335,19 @@ public class CodeGenerator implements ASTVisitor {
 		}
 		else {
 			sb.append("(");
-			binaryExpr.getLeft().visit(this, sb);
+			leftExpr.visit(this, sb);
 			sb.append(" ");
 			switch (binOp) {
-			case PLUS -> sb.append("+");
-			case MINUS -> sb.append("-");
-			case TIMES -> sb.append("*");
-			case DIV -> sb.append("/");
-			case MOD -> sb.append("%");
-			case BITOR -> sb.append("|");
-			case BITAND -> sb.append("&&");
+				case PLUS -> sb.append("+");
+				case MINUS -> sb.append("-");
+				case TIMES -> sb.append("*");
+				case DIV -> sb.append("/");
+				case MOD -> sb.append("%");
+				case BITOR -> sb.append("|");
+				case BITAND -> sb.append("&&");
 			}
 			sb.append(" "); 
-			binaryExpr.getRight().visit(this, sb);
+			rightExpr.visit(this, sb);
 			sb.append(")");
 		}			
 		return sb;
@@ -248,30 +381,115 @@ public class CodeGenerator implements ASTVisitor {
 	@Override
 	public Object visitAssignmentStatement(AssignmentStatement statementAssign, Object arg) throws PLCException {
 		StringBuilder sb = (StringBuilder) arg;
-		statementAssign.getLv().visit(this, sb);
-		sb.append(" = ");
-		statementAssign.getE().visit(this, sb);
-
-		/*
-		else if (statementAssign.getLv().getIdent().getDef().getType() == Type.INT && statementAssign.getE().getType() == Type.STRING) {
-			sb.append(" == ");
-			sb.append(statementAssign.getE().get)
+		LValue leftVal = statementAssign.getLv();
+		Expr rightVal = statementAssign.getE();
+		if (leftVal.getIdent().getDef().getType() == Type.PIXEL) {	
+			leftVal.visit(this, arg);
+			sb.append(" = ");
+			sb.append("PixelOps.pack(");
+			rightVal.visit(this, arg);
+			sb.append(")");
 		}
-		*/
+		
+		else if (leftVal.getIdent().getDef().getType() == Type.IMAGE) {
+			if (leftVal.getColor() == null  && leftVal.getPixelSelector() == null) {
+				if (rightVal.getType() == Type.STRING) {
+					imports.add("edu.ufl.cise.plcsp23.runtime.FileURLIO");
+					imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+					sb.append("ImageOps.copyInto(FileURLIO.readImage(\"");
+					rightVal.visit(this, arg);
+					sb.append(") ," + leftVal.getIdent().getName() + ")");
+					
+				}
+				else if (rightVal.getType() == Type.IMAGE) {
+					imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+					sb.append("ImageOps.copyInto(");
+					rightVal.visit(this, arg);
+					sb.append(" ," + leftVal.getIdent().getName() + ")");
+					
+				}
+				else if (rightVal.getType() == Type.PIXEL) {
+					imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+					sb.append("ImageOps.setAllPixels(");
+					sb.append(leftVal.getIdent().getName() + ",");
+					rightVal.visit(this, arg);
+					sb.append(")");
+					
+				}
+				else {
+					throw new PLCException("Invalid assignment type to Image");
+				}
+			}
+			else if (leftVal.getColor() == null  && leftVal.getPixelSelector() != null) {
+				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+				sb.append("for (int y = 0; y !=" + leftVal.getIdent().getName() + ".getHeight(); y++}){\n"
+						+ "for (int x = 0; x !=" + leftVal.getIdent().getName() + ".getWidth(); x++){\n"
+						+ "ImageOps.setRGB(" + leftVal.getIdent().getName() + ",x,y," 
+						+ "ImageOps.getRGB(");
+				rightVal.visit(this, arg);
+				sb.append(")); }}");
+						
+			}
+			else if (leftVal.getColor() != null  && leftVal.getPixelSelector() != null) {
+				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+				imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
+				sb.append("for (int y = 0; y !=" + leftVal.getIdent().getName() + ".getHeight(); y++}){\n"
+						+ "for (int x = 0; x !=" + leftVal.getIdent().getName() + ".getWidth(); x++){\n"
+						+ "ImageOps.setRGB(" + leftVal.getIdent().getName() + ",x,y," 
+						+ "PixelOps.set");
+				switch (leftVal.getColor()) {
+					case red -> {
+						sb.append("Red");
+					}
+					case grn -> {
+						sb.append("Grn");
+					}
+					case blu -> {
+						sb.append("Blu");
+					}
+				}
+				sb.append("(");
+				rightVal.visit(this, arg);
+				sb.append(")); }}");
+						
+			}
+			else {
+				throw new PLCException("Invalid type for image assignment");
+			}
+			
+
+		}
+		else {		
+			leftVal.visit(this, arg);
+			sb.append(" = ");
+			rightVal.visit(this, sb);
+		}
 		return sb;
 	}
 
 
 	@Override
 	public Object visitDimension(Dimension dimension, Object arg) throws PLCException {
-		// TODO Auto-generated method stub
-		return null;
+		StringBuilder sb = (StringBuilder) arg;
+		dimension.getWidth().visit(this, arg);
+		sb.append(",");
+		dimension.getHeight().visit(this, arg);
+		return sb;
 	}
 
 	@Override
 	public Object visitExpandedPixelExpr(ExpandedPixelExpr expandedPixelExpr, Object arg) throws PLCException {
-		// TODO Auto-generated method stub
-		return null;
+		StringBuilder sb = (StringBuilder) arg;
+		imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
+		sb.append("PixelOps.pack(");
+		expandedPixelExpr.getRedExpr().visit(this, arg);
+		sb.append(",");
+		expandedPixelExpr.getGrnExpr().visit(this, arg);
+		sb.append(",");
+		expandedPixelExpr.getBluExpr().visit(this, arg);
+		sb.append(")");
+		return sb;
+	
 	}
 
 	@Override
@@ -303,14 +521,17 @@ public class CodeGenerator implements ASTVisitor {
 
 	@Override
 	public Object visitPixelSelector(PixelSelector pixelSelector, Object arg) throws PLCException {
-		// TODO Auto-generated method stub
-		return null;
+		StringBuilder sb = (StringBuilder) arg;
+		pixelSelector.getX().visit(this, arg);
+		sb.append(",");
+		pixelSelector.getY().visit(this, arg);
+		return sb;
 	}
 
 	@Override
 	public Object visitPredeclaredVarExpr(PredeclaredVarExpr predeclaredVarExpr, Object arg) throws PLCException {
-		// TODO Auto-generated method stub
-		return null;
+		StringBuilder sb = (StringBuilder) arg;
+		return sb;
 	}
 
 
@@ -325,14 +546,100 @@ public class CodeGenerator implements ASTVisitor {
 
 	@Override
 	public Object visitUnaryExpr(UnaryExpr unaryExpr, Object arg) throws PLCException {
-		// TODO Auto-generated method stub
-		return null;
+		StringBuilder sb = (StringBuilder) arg;
+		switch (unaryExpr.getOp()) {
+		case BANG -> {
+			sb.append("((");
+			unaryExpr.getE().visit(this, arg);
+			sb.append(") == 0 ? 1 : 0)");
+		}
+		case MINUS -> {
+			sb.append("-");
+			sb.append("(");
+			unaryExpr.getE().visit(this, arg);
+			sb.append(")");
+		}
+		}
+		return sb;
 	}
 
 	@Override
 	public Object visitUnaryExprPostFix(UnaryExprPostfix unaryExprPostfix, Object arg) throws PLCException {
-		// TODO Auto-generated method stub
-		return null;
+		StringBuilder sb = (StringBuilder) arg;
+		if (unaryExprPostfix.getPrimary().getType() == Type.IMAGE) {
+			if (unaryExprPostfix.getPixel() != null && unaryExprPostfix.getColor() == null) {
+				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+				sb.append("ImageOps.getRGB(");
+				unaryExprPostfix.getPrimary().visit(this, arg);
+				sb.append(",");
+				unaryExprPostfix.getPixel().visit(this, arg);
+				sb.append(")");
+			}
+			else if (unaryExprPostfix.getPixel()!= null && unaryExprPostfix.getColor() != null){
+				imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
+				sb.append("PixelOps.");
+				sb.append(unaryExprPostfix.getColor().toString());
+				sb.append("(");
+				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+				sb.append("ImageOps.getRGB(");
+				unaryExprPostfix.getPrimary().visit(this, arg);
+				sb.append(",");
+				unaryExprPostfix.getPixel().visit(this, arg);
+				sb.append(")");
+			}
+			else if (unaryExprPostfix.getPixel()== null && unaryExprPostfix.getColor() != null){
+				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+				sb.append("ImageOps.extract");
+				switch (unaryExprPostfix.getColor()) {
+					case red -> {
+						sb.append("Red");
+					}
+					case grn -> {
+						sb.append("Grn");
+					}
+					case blu -> {
+						sb.append("Blu");
+					}
+				}
+				sb.append("(");
+				unaryExprPostfix.getPrimary().visit(this, arg);
+				sb.append(")");
+			}
+			else if (unaryExprPostfix.getPixel() != null && unaryExprPostfix.getColor() == null){
+				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+				sb.append("ImageOps.extract");
+				switch (unaryExprPostfix.getColor()) {
+					case red -> {
+						sb.append("Red");
+					}
+					case grn -> {
+						sb.append("Grn");
+					}
+					case blu -> {
+						sb.append("Blu");
+					}
+				}
+				sb.append("(");
+				unaryExprPostfix.getPrimary().visit(this, arg);
+				sb.append("))");
+			}
+			else {
+				throw new PLCException("Invalid unaryExprPostfix");
+			}
+		}
+		else if (unaryExprPostfix.getPrimary().getType() == Type.PIXEL) {
+			imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
+			sb.append("PixelOps.");
+			sb.append(unaryExprPostfix.getColor().toString());
+			sb.append("(");
+			unaryExprPostfix.getPrimary().visit(this, arg);
+			sb.append(")");
+		}
+		
+		else {
+			throw new PLCException ("Invalid unary postfix primary type " + unaryExprPostfix.getType());
+		}
+		return sb;
 	}
 
 	@Override
@@ -350,9 +657,17 @@ public class CodeGenerator implements ASTVisitor {
 	public Object visitWriteStatement(WriteStatement statementWrite, Object arg) throws PLCException {
 		StringBuilder sb = (StringBuilder) arg;
 		imports.add("edu.ufl.cise.plcsp23.runtime.ConsoleIO");
-		sb.append("ConsoleIO.write(");
-		statementWrite.getE().visit(this, sb);
-		sb.append(")");
+		if (statementWrite.getE().getType() == Type.PIXEL) {							
+			imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
+			sb.append("ConsoleIO.writePixel(");
+			statementWrite.getE().visit(this, sb);
+			sb.append(")");
+		}
+		else {
+			sb.append("ConsoleIO.write(");
+			statementWrite.getE().visit(this, sb);
+			sb.append(")");
+		}
 		return sb;
 	}
 

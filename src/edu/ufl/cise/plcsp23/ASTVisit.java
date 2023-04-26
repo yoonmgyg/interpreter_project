@@ -296,11 +296,11 @@ public class ASTVisit implements ASTVisitor{
    public Object visitDeclaration(Declaration declaration, Object arg) throws PLCException{
         NameDef vdNameDef;
         vdNameDef = declaration.getNameDef();
-        Expr vdExpr;;
+        Expr vdExpr;
         vdExpr = declaration.getInitializer();
         Type visitor;
         checker = false;
-        // System.out.println("declaration " + vdNameDef.getIdent());
+        System.out.println(vdNameDef.toString());
         if(vdNameDef.getType() == Type.IMAGE && (vdExpr == null && vdNameDef.getDimension() == null))
                 throw new TypeCheckException("var without initializer/dimension");
         
@@ -314,6 +314,7 @@ public class ASTVisit implements ASTVisitor{
         	// System.out.println("variable declared");
         	if (vdExpr != null) {
         		visitor = (Type) vdExpr.visit(this, arg);
+        		vdExpr.setType(visitor);
         	}
             table.editST(vdNameDef.getIdent().getName(), vdNameDef, scope);
         }
@@ -324,8 +325,12 @@ public class ASTVisit implements ASTVisitor{
     @Override
    public Object visitDimension(Dimension dimension, Object arg) throws PLCException {
     	Type visitor1 , visitor2;
+    	System.out.println(dimension.getWidth().getType());
+    	System.out.println(dimension.getHeight().getType());
+
         visitor1 = (Type) dimension.getWidth().visit(this, arg);
         visitor2 = (Type) dimension.getHeight().visit(this, arg);
+
         if(visitor1 != Type.INT || visitor2 != Type.INT)
             throw new TypeCheckException("Width/Height must be INT");
         return null;
@@ -363,7 +368,6 @@ public class ASTVisit implements ASTVisitor{
         	checker = false;
         vieNameDef = table.returnND(identExpr.getName());   
         if(table.returnND(identExpr.getName()) == null && !checker){
-        	System.out.println(Arrays.asList(table));
             throw new TypeCheckException("Variable " + identExpr.getName() + " is not defined");
         }
         returnerType = vieNameDef.getType();
@@ -385,7 +389,7 @@ public class ASTVisit implements ASTVisitor{
         
         else if (nameDef.getDimension() != null) 
             nameDef.getDimension().visit(this, arg); 
-           
+
         table.editST(nameDef.getIdent().getName(), nameDef, scope);
         
         return null;
@@ -405,13 +409,12 @@ public class ASTVisit implements ASTVisitor{
 
     @Override
     public Object visitPixelSelector(PixelSelector pixelSelector, Object arg) throws PLCException{
-    	
+
         if((Type) pixelSelector.getX().visit(this, arg) != Type.INT)
             throw new TypeCheckException("X Value not Int");
         
         else if((Type) pixelSelector.getY().visit(this, arg) != Type.INT)
             throw new TypeCheckException("Y Value not Int");
-        
         return Type.PIXEL;
     }
 
@@ -483,20 +486,23 @@ public class ASTVisit implements ASTVisitor{
                 throw new TypeCheckException("Switch Error");
             }
         }
-
-        return (Type) unaryExpr.getE().visit(this, arg);
+        Type returnType = (Type) unaryExpr.getE().visit(this, arg);
+        unaryExpr.setType(returnType);
+        return returnType;
     }
 
     @Override
     public Object visitUnaryExprPostFix(UnaryExprPostfix unaryExprPostfix, Object arg) throws PLCException {
-        if((Type) unaryExprPostfix.getPixel().visit(this, arg) == null && unaryExprPostfix.getColor() == null){
+        if(unaryExprPostfix.getPixel() == null && unaryExprPostfix.getColor() == null){
             throw new TypeCheckException("Cannot create unary expression postfix without pixel or color");
         }
 
         if ((Type) unaryExprPostfix.getPrimary().visit(this, arg) == Type.PIXEL) {
         	
-            if((Type) unaryExprPostfix.getPixel().visit(this, arg) == null)
+            if(unaryExprPostfix.getPixel()== null) {
+            	unaryExprPostfix.getPrimary().setType(Type.INT);
                 return Type.INT;
+            }
             else 
                 throw new TypeCheckException("UEXPFError");
             
@@ -504,12 +510,18 @@ public class ASTVisit implements ASTVisitor{
         
         else if((Type) unaryExprPostfix.getPrimary().visit(this, arg) == Type.IMAGE) {
         	
-            if((Type) unaryExprPostfix.getPixel().visit(this, arg) == null && unaryExprPostfix.getColor() != null)
+            if(unaryExprPostfix.getPixel() == null && unaryExprPostfix.getColor() != null) {
+            	unaryExprPostfix.getPrimary().setType(Type.IMAGE);
                 return Type.IMAGE;
-             else if((Type) unaryExprPostfix.getPixel().visit(this, arg) != null && unaryExprPostfix.getColor() == null)
-                return Type.PIXEL;
-             else 
+            }
+             else if((Type) unaryExprPostfix.getPixel().visit(this, arg) != null && unaryExprPostfix.getColor() == null) {
+            	 unaryExprPostfix.getPrimary().setType(Type.PIXEL);
+            	 return Type.PIXEL;
+             }
+             else {
+            	 unaryExprPostfix.getPrimary().setType(Type.INT);
                 return Type.INT;
+             }
             
         } 
         
