@@ -105,8 +105,10 @@ public class CodeGenerator implements ASTVisitor {
 		decND.visit(this, arg);		
 		if (decND.getType() == Type.PIXEL) {
 			imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
-			sb.append(" = ");
-			decInit.visit(this,arg);
+			if (decInit != null) {
+				sb.append(" = ");
+				decInit.visit(this,arg);
+			}
 		}
 		else if (decND.getType() == Type.IMAGE) {	
 			// initializer
@@ -180,7 +182,6 @@ public class CodeGenerator implements ASTVisitor {
 			}
 			else if (decND.getDimension() != null) {
 				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
-				decND.visit(this, arg);
 				sb.append(" = ImageOps.makeImage(");
 				decND.getDimension().getWidth().visit(this,arg);
 				sb.append(",");
@@ -259,12 +260,29 @@ public class CodeGenerator implements ASTVisitor {
 		Kind binOp = binaryExpr.getOp();
 		Expr leftExpr = binaryExpr.getLeft();
 		Expr rightExpr = binaryExpr.getRight();
-		System.out.println(leftExpr.toString());
-		System.out.println(rightExpr.getType());
 		if (leftExpr.getType() == Type.IMAGE && rightExpr.getType() == Type.IMAGE) {
 			if (binOp == Kind.PLUS || binOp == Kind.MINUS || binOp == Kind.TIMES || binOp == Kind.DIV || binOp == Kind.MOD) {		
 				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
 				sb.append("ImageOps.binaryImageImageOp(");
+				switch (binOp) {
+				case PLUS -> {
+					sb.append("ImageOps.OP.PLUS");
+				}
+				case MINUS -> {
+					sb.append("ImageOps.OP.MINUS");
+				}
+				case TIMES -> {
+					sb.append("ImageOps.OP.TIMES");
+				}
+				case DIV -> {
+					sb.append("ImageOps.OP.DIV");
+				}
+
+				case MOD -> {
+					sb.append("ImageOps.OP.MOD");
+				}
+			}
+			sb.append(",");
 				leftExpr.visit(this, arg);
 				sb.append(",");
 				rightExpr.visit(this, arg);
@@ -279,6 +297,25 @@ public class CodeGenerator implements ASTVisitor {
 			if (binOp == Kind.PLUS || binOp == Kind.MINUS || binOp == Kind.TIMES || binOp == Kind.DIV || binOp == Kind.MOD) {		
 				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
 				sb.append("ImageOps.binaryImageScalarOp(");
+				switch (binOp) {
+					case PLUS -> {
+						sb.append("ImageOps.OP.PLUS");
+					}
+					case MINUS -> {
+						sb.append("ImageOps.OP.MINUS");
+					}
+					case TIMES -> {
+						sb.append("ImageOps.OP.TIMES");
+					}
+					case DIV -> {
+						sb.append("ImageOps.OP.DIV");
+					}
+
+					case MOD -> {
+						sb.append("ImageOps.OP.MOD");
+					}
+				}
+				sb.append(",");
 				leftExpr.visit(this, arg);
 				sb.append(",");
 				rightExpr.visit(this, arg);
@@ -292,7 +329,59 @@ public class CodeGenerator implements ASTVisitor {
 		else if (leftExpr.getType() == Type.PIXEL && rightExpr.getType() == Type.PIXEL) {
 			if (binOp == Kind.PLUS || binOp == Kind.MINUS || binOp == Kind.TIMES || binOp == Kind.DIV || binOp == Kind.MOD) {		
 				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
-				sb.append("ImageOps.binaryImagePixelOp(");
+				sb.append("ImageOps.binaryPackedPixelPixelOp(");
+				switch (binOp) {
+				case PLUS -> {
+					sb.append("ImageOps.OP.PLUS");
+				}
+				case MINUS -> {
+					sb.append("ImageOps.OP.MINUS");
+				}
+				case TIMES -> {
+					sb.append("ImageOps.OP.TIMES");
+				}
+				case DIV -> {
+					sb.append("ImageOps.OP.DIV");
+				}
+
+				case MOD -> {
+					sb.append("ImageOps.OP.MOD");
+				}
+			}
+			sb.append(",");
+				leftExpr.visit(this, arg);
+				sb.append(",");
+				rightExpr.visit(this, arg);
+				sb.append(")");
+
+			}
+			else {
+				throw new PLCException("Invalid image operator");
+			}
+		}
+		else if (leftExpr.getType() == Type.PIXEL && rightExpr.getType() == Type.INT) {
+			if (binOp == Kind.PLUS || binOp == Kind.MINUS || binOp == Kind.TIMES || binOp == Kind.DIV || binOp == Kind.MOD) {		
+				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
+				sb.append("ImageOps.binaryPackedPixelIntOp(");
+				switch (binOp) {
+				case PLUS -> {
+					sb.append("ImageOps.OP.PLUS");
+				}
+				case MINUS -> {
+					sb.append("ImageOps.OP.MINUS");
+				}
+				case TIMES -> {
+					sb.append("ImageOps.OP.TIMES");
+				}
+				case DIV -> {
+					sb.append("ImageOps.OP.DIV");
+				}
+
+				case MOD -> {
+					sb.append("ImageOps.OP.MOD");
+				}
+			}
+			sb.append(",");
 				leftExpr.visit(this, arg);
 				sb.append(",");
 				rightExpr.visit(this, arg);
@@ -383,7 +472,9 @@ public class CodeGenerator implements ASTVisitor {
 		StringBuilder sb = (StringBuilder) arg;
 		LValue leftVal = statementAssign.getLv();
 		Expr rightVal = statementAssign.getE();
-		if (leftVal.getIdent().getDef().getType() == Type.PIXEL) {	
+		System.out.println(leftVal.getType());
+
+		if (leftVal.getType() == Type.PIXEL) {	
 			leftVal.visit(this, arg);
 			sb.append(" = ");
 			sb.append("PixelOps.pack(");
@@ -391,7 +482,7 @@ public class CodeGenerator implements ASTVisitor {
 			sb.append(")");
 		}
 		
-		else if (leftVal.getIdent().getDef().getType() == Type.IMAGE) {
+		else if (leftVal.getType() == Type.IMAGE) {
 			if (leftVal.getColor() == null  && leftVal.getPixelSelector() == null) {
 				if (rightVal.getType() == Type.STRING) {
 					imports.add("edu.ufl.cise.plcsp23.runtime.FileURLIO");
@@ -566,6 +657,7 @@ public class CodeGenerator implements ASTVisitor {
 	@Override
 	public Object visitUnaryExprPostFix(UnaryExprPostfix unaryExprPostfix, Object arg) throws PLCException {
 		StringBuilder sb = (StringBuilder) arg;
+		System.out.println(unaryExprPostfix.getPrimary().getType());
 		if (unaryExprPostfix.getPrimary().getType() == Type.IMAGE) {
 			if (unaryExprPostfix.getPixel() != null && unaryExprPostfix.getColor() == null) {
 				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
@@ -585,7 +677,7 @@ public class CodeGenerator implements ASTVisitor {
 				unaryExprPostfix.getPrimary().visit(this, arg);
 				sb.append(",");
 				unaryExprPostfix.getPixel().visit(this, arg);
-				sb.append(")");
+				sb.append("))");
 			}
 			else if (unaryExprPostfix.getPixel()== null && unaryExprPostfix.getColor() != null){
 				imports.add("edu.ufl.cise.plcsp23.runtime.ImageOps");
@@ -627,7 +719,7 @@ public class CodeGenerator implements ASTVisitor {
 				throw new PLCException("Invalid unaryExprPostfix");
 			}
 		}
-		else if (unaryExprPostfix.getPrimary().getType() == Type.PIXEL) {
+		else if (unaryExprPostfix.getPrimary().getType() == Type.PIXEL && unaryExprPostfix.getColor() != null) {
 			imports.add("edu.ufl.cise.plcsp23.runtime.PixelOps");
 			sb.append("PixelOps.");
 			sb.append(unaryExprPostfix.getColor().toString());
@@ -637,7 +729,7 @@ public class CodeGenerator implements ASTVisitor {
 		}
 		
 		else {
-			throw new PLCException ("Invalid unary postfix primary type " + unaryExprPostfix.getType());
+			throw new PLCException ("Invalid unary postfix primary type " + unaryExprPostfix.getPrimary().getType());
 		}
 		return sb;
 	}

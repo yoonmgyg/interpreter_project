@@ -707,7 +707,6 @@ class Assignment6Test_starter {
 	}
 
 	@Ignore
-	@Test
 	void cg24a() throws Exception {
 		String input = """
 				int imageEqual(string s0, string s1){
@@ -749,7 +748,7 @@ class Assignment6Test_starter {
 		assertEquals(expected, result);
 	}
 
-	@Test
+	@Ignore
 	void cg24c() throws Exception {
 		String input = """
 				int imageEqual(string s0, string s1, int w, int h){

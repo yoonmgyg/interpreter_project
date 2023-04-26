@@ -24,7 +24,8 @@ public class ASTVisit implements ASTVisitor{
             
         else if (left == Type.STRING && ((right == Type.STRING) || (right == Type.IMAGE) || (right == Type.PIXEL) || (right == Type.INT)))           
                 return true;            
-        
+        else if (left == right) 
+        	return true;
         else
         	return false;
     }
@@ -300,7 +301,6 @@ public class ASTVisit implements ASTVisitor{
         vdExpr = declaration.getInitializer();
         Type visitor;
         checker = false;
-        System.out.println(vdNameDef.toString());
         if(vdNameDef.getType() == Type.IMAGE && (vdExpr == null && vdNameDef.getDimension() == null))
                 throw new TypeCheckException("var without initializer/dimension");
         
@@ -325,9 +325,6 @@ public class ASTVisit implements ASTVisitor{
     @Override
    public Object visitDimension(Dimension dimension, Object arg) throws PLCException {
     	Type visitor1 , visitor2;
-    	System.out.println(dimension.getWidth().getType());
-    	System.out.println(dimension.getHeight().getType());
-
         visitor1 = (Type) dimension.getWidth().visit(this, arg);
         visitor2 = (Type) dimension.getHeight().visit(this, arg);
 
@@ -371,12 +368,76 @@ public class ASTVisit implements ASTVisitor{
             throw new TypeCheckException("Variable " + identExpr.getName() + " is not defined");
         }
         returnerType = vieNameDef.getType();
+        identExpr.setType(returnerType);
         return returnerType;
     }
 
-    @Override
+
     public Object visitLValue(LValue lValue, Object arg) throws PLCException{
-        return null;
+        Ident pass = lValue.getIdent();
+        String thru = pass.getName();
+        NameDef lV=  table.returnND(thru);
+        Type lvt = (Type) lV.getType();
+        boolean cs = true;
+        if(lValue.getColor() == null)
+            cs = false;
+        boolean ps = true;
+        if(lValue.getPixelSelector() == null)
+            ps = false;
+        System.out.println(lvt);
+        System.out.println(lValue.getPixelSelector());
+        System.out.println(lValue.getColor());
+
+        if (lvt == Type.IMAGE) {
+            if(!cs && !ps) {
+            	lValue.setType(Type.IMAGE);
+                return Type.IMAGE;
+            }
+            else if (ps && !cs){
+            	lValue.setType(Type.PIXEL);
+                return Type.PIXEL;
+            }
+            else if (cs && !ps){
+            	lValue.setType(Type.IMAGE);
+                return Type.IMAGE;
+            }
+            else{
+            	lValue.setType(Type.INT);
+                return Type.INT;
+            }
+        }
+        else if (lvt == Type.PIXEL) {
+            if(!cs && !ps){
+            	lValue.setType(Type.PIXEL);
+                return Type.PIXEL;
+            }
+            else if (!ps && cs){
+            	lValue.setType(Type.INT);
+                return Type.INT;
+            }
+            else
+                throw new TypeCheckException("Incompatible Types for Pixel");
+
+        }
+        else if (lvt == Type.STRING) {
+            if (!cs && !ps){
+            	lValue.setType(Type.STRING);
+                return Type.STRING;
+            }
+            else
+                throw new TypeCheckException("Incompatible Types for String");
+        }
+        else if (lvt == Type.INT) {
+            if (!cs && !ps){
+            	lValue.setType(Type.INT);
+                return Type.INT;
+            }
+            else
+                throw new TypeCheckException("Incompatible Types for Int");
+        }
+        else
+            throw new TypeCheckException("Incompatible Types");
+        //return null;
     }
 
     @Override
@@ -452,7 +513,7 @@ public class ASTVisit implements ASTVisitor{
     @Override
     public Object visitReturnStatement(ReturnStatement returnStatement, Object arg)throws PLCException {
     	
-        if((Type) returnStatement.getE().visit(this, arg) != returnerType)
+        if(typeCompCheck(returnStatement.getE().getType(), returnerType))
             throw new TypeCheckException("Program-Return match error");
         else
         	return (Type) returnStatement.getE().visit(this, arg);
@@ -500,7 +561,7 @@ public class ASTVisit implements ASTVisitor{
         if ((Type) unaryExprPostfix.getPrimary().visit(this, arg) == Type.PIXEL) {
         	
             if(unaryExprPostfix.getPixel()== null) {
-            	unaryExprPostfix.getPrimary().setType(Type.INT);
+            	unaryExprPostfix.setType(Type.INT);
                 return Type.INT;
             }
             else 
@@ -511,15 +572,15 @@ public class ASTVisit implements ASTVisitor{
         else if((Type) unaryExprPostfix.getPrimary().visit(this, arg) == Type.IMAGE) {
         	
             if(unaryExprPostfix.getPixel() == null && unaryExprPostfix.getColor() != null) {
-            	unaryExprPostfix.getPrimary().setType(Type.IMAGE);
+            	unaryExprPostfix.setType(Type.IMAGE);
                 return Type.IMAGE;
             }
              else if((Type) unaryExprPostfix.getPixel().visit(this, arg) != null && unaryExprPostfix.getColor() == null) {
-            	 unaryExprPostfix.getPrimary().setType(Type.PIXEL);
+            	 unaryExprPostfix.setType(Type.PIXEL);
             	 return Type.PIXEL;
              }
              else {
-            	 unaryExprPostfix.getPrimary().setType(Type.INT);
+            	 unaryExprPostfix.setType(Type.INT);
                 return Type.INT;
              }
             

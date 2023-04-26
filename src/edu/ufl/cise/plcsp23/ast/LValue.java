@@ -18,6 +18,7 @@ public class LValue extends AST {
 	final Ident ident;
 	final PixelSelector pixelSelector;
 	final ColorChannel color;
+	Type type;
 
 	public LValue(IToken firstToken, Ident ident, PixelSelector pixelSelector, ColorChannel color) {
 		super(firstToken);
@@ -31,6 +32,13 @@ public class LValue extends AST {
 		return v.visitLValue(this, arg);
 	}
 
+	public Type getType() {
+		return type;
+	}
+	
+	public Type setType(Type type) {
+		return this.type = type;
+	}
 	public Ident getIdent() {
 		return ident;
 	}
