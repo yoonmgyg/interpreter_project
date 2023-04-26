@@ -1,5 +1,6 @@
 package edu.ufl.cise.plcsp23;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -9,7 +10,9 @@ import edu.ufl.cise.plcsp23.ast.*;
 
 public class CodeGenerator implements ASTVisitor {
 	HashSet<String> imports = new HashSet<String>(); 
+	HashMap<String, Type> varTypes = new HashMap<String, Type>();
 	String packageName;
+	boolean convertToInt = false;
 	
 	public CodeGenerator(String name) {
 		packageName = name;
@@ -38,6 +41,7 @@ public class CodeGenerator implements ASTVisitor {
 
 		// method
 		Type programType = program.getType();
+		varTypes.put("return", programType);
 		sb.append("public static " + TypeToString(programType) + " apply(");
 		
 		// parameters
@@ -90,12 +94,23 @@ public class CodeGenerator implements ASTVisitor {
 	public Object visitDeclaration(Declaration declaration, Object arg) throws PLCException {
 		StringBuilder sb = (StringBuilder) arg;
 		declaration.getNameDef().visit(this, sb);
-		
-		Expr decInit = declaration.getInitializer();
+		Expr decInit = declaration.getInitializer();	
+		if (declaration.getNameDef().getType() == Type.INT) {
+			convertToInt = true;
+		}
+			
 		if (decInit != null) {
 			sb.append("=");
 			decInit.visit(this, sb);
-		}
+			/*
+			if (declaration.getNameDef().getType() == Type.STRING && decInit.getType()== Type.INT) {
+				sb.append(" == ");
+				NumLitExpr decInitNo = (NumLitExpr) declaration.getInitializer();
+				sb.append(decInitNo.getValue());
+				
+			}*/
+		}		
+		convertToInt = false;
 		return sb;
 	}
 
@@ -103,6 +118,7 @@ public class CodeGenerator implements ASTVisitor {
 		StringBuilder sb = (StringBuilder) arg;
 		sb.append(TypeToString(nameDef.getType()) + " ");
 		nameDef.getIdent().visit(this, sb);
+		varTypes.put(nameDef.getIdent().getName(), nameDef.getType());
 		return sb;
 
 	}
@@ -116,8 +132,10 @@ public class CodeGenerator implements ASTVisitor {
 			guardExpr.visit(this, sb);
 			sb.append("\"");
 		}
-		else if (guardExpr.getType() ==Type.INT) {
+		else if (guardExpr.getClass().getName() == "edu.ufl.cise.plcsp23.ast.IdentExpr") {
+			sb.append("(");
 			guardExpr.visit(this, sb);
+			sb.append(" == 1)");
 		}
 		else {
 			guardExpr.visit(this, sb);
@@ -161,6 +179,9 @@ public class CodeGenerator implements ASTVisitor {
 		else if (binOp == Kind.LT || binOp == Kind.GT || binOp == Kind.LE || binOp == Kind.GE || binOp == Kind.EQ || binOp == Kind.OR || binOp ==Kind.AND) {
 
 			sb.append("(");
+			if (convertToInt) {
+				sb.append("(");
+			}
 			binaryExpr.getLeft().visit(this, sb);
 			switch (binOp) {
 				case LT -> sb.append("<");
@@ -174,6 +195,10 @@ public class CodeGenerator implements ASTVisitor {
 			sb.append(" ");
 			binaryExpr.getRight().visit(this, sb);
 			sb.append(")");
+			if (convertToInt) {
+				sb.append("? 1 : 0)");
+			}
+			convertToInt = false;
 		}
 		else {
 			sb.append("(");
@@ -226,6 +251,13 @@ public class CodeGenerator implements ASTVisitor {
 		statementAssign.getLv().visit(this, sb);
 		sb.append(" = ");
 		statementAssign.getE().visit(this, sb);
+
+		/*
+		else if (statementAssign.getLv().getIdent().getDef().getType() == Type.INT && statementAssign.getE().getType() == Type.STRING) {
+			sb.append(" == ");
+			sb.append(statementAssign.getE().get)
+		}
+		*/
 		return sb;
 	}
 

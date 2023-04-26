@@ -1,5 +1,6 @@
 package edu.ufl.cise.plcsp23;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import edu.ufl.cise.plcsp23.ast.*;
 
@@ -69,9 +70,14 @@ public class ASTVisit implements ASTVisitor{
         
 
         
-        public NameDef returnND(String name) {
+        public NameDef returnND(String name) throws TypeCheckException {
             if (table.containsKey(name)) {
+            	if (table.get(name).size() != 0) {
                 return table.get(name).get(0).nameDef;
+            	}
+            	else {
+            		throw new TypeCheckException("Variable not declared in scope");
+            	}
                 }
             return null;
         }
@@ -290,11 +296,11 @@ public class ASTVisit implements ASTVisitor{
    public Object visitDeclaration(Declaration declaration, Object arg) throws PLCException{
         NameDef vdNameDef;
         vdNameDef = declaration.getNameDef();
-        Expr vdExpr;
+        Expr vdExpr;;
         vdExpr = declaration.getInitializer();
         Type visitor;
         checker = false;
-                
+        // System.out.println("declaration " + vdNameDef.getIdent());
         if(vdNameDef.getType() == Type.IMAGE && (vdExpr == null && vdNameDef.getDimension() == null))
                 throw new TypeCheckException("var without initializer/dimension");
         
@@ -304,8 +310,11 @@ public class ASTVisit implements ASTVisitor{
         else if(table.findWithND(vdNameDef, scope) && !checker)
             throw new TypeCheckException("nameDef error");
                     
-        else if (vdExpr != null && !checker){
-            visitor = (Type) vdExpr.visit(this, arg);
+        else if (!checker){
+        	// System.out.println("variable declared");
+        	if (vdExpr != null) {
+        		visitor = (Type) vdExpr.visit(this, arg);
+        	}
             table.editST(vdNameDef.getIdent().getName(), vdNameDef, scope);
         }
         
@@ -354,6 +363,7 @@ public class ASTVisit implements ASTVisitor{
         	checker = false;
         vieNameDef = table.returnND(identExpr.getName());   
         if(table.returnND(identExpr.getName()) == null && !checker){
+        	System.out.println(Arrays.asList(table));
             throw new TypeCheckException("Variable " + identExpr.getName() + " is not defined");
         }
         returnerType = vieNameDef.getType();
@@ -402,7 +412,7 @@ public class ASTVisit implements ASTVisitor{
         else if((Type) pixelSelector.getY().visit(this, arg) != Type.INT)
             throw new TypeCheckException("Y Value not Int");
         
-        return null;
+        return Type.PIXEL;
     }
 
     @Override
@@ -512,11 +522,11 @@ public class ASTVisit implements ASTVisitor{
     
     public Object visitWhileStatement(WhileStatement whileStatement, Object arg) throws PLCException {
     	boolean inscope;
-       whileStatement.getGuard().visit(this, arg);
+       Type guardType = (Type) whileStatement.getGuard().visit(this, arg);
        inscope = false;
        int i;
        i = scope;
-        if (whileStatement.getGuard().getType() != Type.INT && !inscope)
+        if (guardType != Type.INT && !inscope)
             throw new TypeCheckException("Error"); 
         
         i++;
